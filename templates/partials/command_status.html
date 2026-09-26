@@ -1,0 +1,14 @@
+{{$c := .Command}}
+{{if ne $c.State "idle"}}
+<div class="cmd cmd-{{$c.State}}">
+  <div class="cmd-head">
+    <span class="badge {{if $c.Running}}s-running{{else if eq $c.State "error"}}s-failed{{else}}s-completed{{end}}">sop {{$c.Verb}} · {{$c.State}}</span>
+    <span class="muted small">started {{since $c.Started}}</span>
+  </div>
+  {{if $c.Error}}<div class="error-text">{{$c.Error}}</div>{{end}}
+  {{if $c.Output}}<pre class="diag">{{$c.Output}}</pre>{{end}}
+  {{if $c.Running}}
+  <div hx-get="{{.CommandURL}}" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+  {{end}}
+</div>
+{{end}}

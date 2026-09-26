@@ -1,0 +1,21 @@
+#!/bin/sh
+# Runs on every commit once activated (`git config core.hooksPath .githooks`).
+# Go-only checks: the dashboard has no Node or Postgres dependency.
+set -e
+
+echo "→ gofmt"
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+  echo "gofmt needs to run on:"
+  echo "$unformatted"
+  exit 1
+fi
+
+echo "→ go build"
+go build ./...
+
+echo "→ go vet"
+go vet ./...
+
+echo "→ go test"
+go test ./...

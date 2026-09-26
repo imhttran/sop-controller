@@ -1,0 +1,42 @@
+# SOP project configuration.
+#
+# This file describes policy, never mutable task state, and never secrets.
+# Agent credentials come from the environment (for example SOP_LLAMACPP_API_KEY).
+version: 1
+
+project:
+  name: "sop-controller"
+  integration_branch: main
+
+agent:
+  # command | ollama | llamacpp
+  harness: tool
+  provider: ollama
+  model: deepseek-v4.1-flash:cloud
+
+validation:
+  build:
+    - go build ./...
+  test:
+    - go test ./...
+  lint:
+    - go vet ./...
+
+review:
+  # self | open-code-review
+  engine: self
+  delegation: false
+
+quality:
+  require_tests: true
+  max_fix_cycles: 3
+  fail_on:
+    - critical
+    - high
+
+  jev:
+    enabled: true
+    mode: review
+
+human:
+  approval_before_commit: true

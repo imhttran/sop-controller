@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Status}} — SOP Controller</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  {{template "nav.html" .}}
+  <main class="wrap">
+    <h1>{{.Status}}</h1>
+    <p class="error-text">{{.Message}}</p>
+    <p><a href="/projects">← Back to projects</a></p>
+  </main>
+  {{template "scripts.html" .}}
+</body>
+</html>

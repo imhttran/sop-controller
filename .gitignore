@@ -1,0 +1,21 @@
+# Local environment
+.env
+.env.*
+!.env.example
+
+# SOP authoritative state: owned by SOP, mutable, never tracked here.
+.agent-sdlc/state.db
+.agent-sdlc/state.db-wal
+.agent-sdlc/state.db-shm
+.agent-sdlc/runs/
+.agent-sdlc/plan.json
+
+# Editor state
+.zed/
+
+# macOS
+.DS_Store
+
+# Build + run artifacts
+.run/
+/sop-controller

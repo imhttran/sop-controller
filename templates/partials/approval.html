@@ -1,0 +1,95 @@
+{{- /* CTRL011: Human approval boundary panel. Rendered ONLY when SOP reports an
+       actual approval boundary for this task (TaskDetail.Approval.Present). The
+       controller never decides that approval is required and never manufactures
+       an approval: it shows SOP's reported gate and delegates the approve/decline
+       ACTION to SOP's own application boundary. When SOP reports no boundary the
+       panel shows an explicit absence and offers no control.
+
+       Approve and decline are independent SOP operations, so each control is
+       gated on its OWN applicability (ApproveApplicable / DeclineApplicable):
+       an action SOP exposes is offered even if its counterpart is unsupported,
+       and an action SOP does not expose (the recorded CTRL011 gap) is shown
+       read-only with its reason rather than as a control whose only outcome is
+       an unsupported error. Declining/withholding writes nothing locally; the
+       rendered state after an action re-reads SOP. */ -}}
+{{$a := .Approval}}
+{{if $a.Present}}
+<dl class="facts approval-facts">
+  <div>
+    <dt>Gate</dt>
+    <dd><span class="badge s-blocked">{{$a.Kind}}</span></dd>
+  </div>
+  <div>
+    <dt>Task</dt>
+    <dd><code>{{$a.Target}}</code></dd>
+  </div>
+  {{if $a.Stage}}
+  <div>
+    <dt>Run stage</dt>
+    <dd><span class="badge {{stageClass $a.Stage}}">{{$a.Stage}}</span></dd>
+  </div>
+  {{end}}
+  {{if $a.Disposition}}
+  <div>
+    <dt>Disposition</dt>
+    <dd><span class="badge {{dispositionClass $a.Disposition}}">{{$a.Disposition}}</span></dd>
+  </div>
+  {{end}}
+  {{if $a.FinalGateRecorded}}
+  <div>
+    <dt>Final plan gate</dt>
+    <dd>{{$a.FinalGate}}</dd>
+  </div>
+  {{end}}
+</dl>
+{{if $a.Evidence}}<p class="muted small">SOP-reported reason: {{$a.Evidence}}</p>{{end}}
+{{if $a.Applicable}}
+<div class="actions">
+  {{if $a.ApproveApplicable}}
+  <form
+    class="inline"
+    hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/approve"
+    hx-target="#cmd"
+    hx-swap="innerHTML"
+  >
+    <input type="hidden" name="csrf" value="{{.CSRF}}" />
+    <button class="btn">Approve (SOP gate)</button>
+  </form>
+  {{end}}
+  {{if $a.DeclineApplicable}}
+  <form
+    class="inline"
+    hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/decline"
+    hx-target="#cmd"
+    hx-swap="innerHTML"
+  >
+    <input type="hidden" name="csrf" value="{{.CSRF}}" />
+    <button class="btn">Decline</button>
+  </form>
+  {{end}}
+</div>
+<div id="cmd"></div>
+<p class="muted small">
+  The controller does not approve work itself: the action is delegated to SOP's
+  application boundary, which records the decision with SOP provenance. Declining
+  writes nothing and leaves the task in SOP's reported state.
+</p>
+{{else}}
+<p class="muted">
+  Approval action: <span class="badge s-unavailable">{{unavailable}}</span>
+  <span class="small"
+    >SOP reports a human approval boundary for this task but exposes no
+    application operation to apply it, so no approval action is available here.</span
+  >
+</p>
+{{if $a.ActionReason}}<p class="muted small">{{$a.ActionReason}}</p>{{end}}
+{{end}}
+{{else}}
+<p class="muted">
+  Approval: <span class="badge s-unavailable">{{unavailable}}</span>
+  <span class="small"
+    >SOP reports no human approval boundary for this task; no approval action is
+    offered.</span
+  >
+</p>
+{{end}}
