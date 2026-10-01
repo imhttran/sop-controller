@@ -57,14 +57,15 @@ Execution, observation, polling, and timeout are four separate things. For the
 full explanation, see
 [EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md). In short:
 
-- **Observation is immediate.** Use the controller's native activity/status
-  surfaces: the activity view (`/projects/{project}/activity`) and the live
-  activity stream (`/projects/{project}/activity/stream`). That stream is the
-  primary solution; do not build a custom watcher.
-- **Polling is only a fallback.** If the live stream is unavailable, the
-  `/projects/{project}/activity/window` endpoint provides a short, bounded,
+- **Observation is immediate — it is the primary solution.** Use the
+  controller's native activity/status surfaces: the activity view
+  (`/projects/{project}/activity`) and the live activity stream
+  (`/projects/{project}/activity/stream`). Do not build a custom watcher.
+- **Polling is only an explicit fallback.** If the live stream is unavailable,
+  the `/projects/{project}/activity/window` endpoint provides a short, bounded,
   configurable re-read (`SOP_CONTROLLER_POLL`, default `3s`). A short bounded
-  loop around it is an explicit fallback, not the default.
+  loop around it is a fallback, not the default, and never an arbitrary
+  multi-minute sleep.
 - **No fixed four-minute wait is required.** There is no arbitrary multi-minute
   pause in the workflow; waiting a fixed interval only delays reacting to SOP's
   real state. To watch the controller process itself, use `make logs` (tails
@@ -72,6 +73,11 @@ full explanation, see
 - **Timeout is separate.** `SOP_CONTROLLER_COMMAND_TIMEOUT` (default `15m`)
   bounds one command's execution and returns a truthful timeout error; it does
   not bound observation and does not change SOP state.
+
+> `.run/sop-controller.log` is the controller log written by `make start` and
+> tailed by `make logs` (the `LOG` variable in the [Makefile](../../Makefile)).
+> `.run/sop-run.log`, if present, is a different SOP-side run artifact — not the
+> controller process log.
 
 ## Retry
 

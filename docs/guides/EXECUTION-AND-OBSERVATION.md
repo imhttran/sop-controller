@@ -78,9 +78,11 @@ SOP tell you when a gate or completion actually occurs.
 
 ## Developer Debugging Workflow
 
-When you want to know what a run is doing right now:
+When you want to know what a run is doing right now, prefer immediate
+observation; a short bounded polling loop is an explicit fallback only.
 
-1. **Observe immediately.** Open the project's activity view
+1. **Observe immediately through the controller's native activity/status
+   surfaces (primary).** Open the project's activity view
    (`/projects/{project}` / `/projects/{project}/activity`), which consumes the
    live activity stream (`/projects/{project}/activity/stream`). For the
    controller process itself, watch its log directly:
@@ -109,6 +111,13 @@ When you want to know what a run is doing right now:
 3. **Do not** wait a fixed multi-minute interval for something to happen.
    Nothing about SOP progress is scheduled to a wall-clock guess.
 
+> **Log path note.** The controller log written by `make start` and tailed by
+> `make logs` is `.run/sop-controller.log` (see the `LOG` variable in the
+> [Makefile](../../Makefile)). `.run/sop-run.log` is **not** the controller's
+> log: it is an SOP-side run artifact that may exist in a project's `.run`
+> directory, and it is only present once such a run has produced output. When
+> you mean the controller process, use `.run/sop-controller.log`.
+
 ### Related Documentation
 
 - [RUN-CONTROLS.md](RUN-CONTROLS.md) — start, continue, retry, cancellation.
@@ -116,5 +125,6 @@ When you want to know what a run is doing right now:
   action.
 - [../reference/CONFIGURATION.md](../reference/CONFIGURATION.md) — poll cadence
   and command timeout.
+- [../reference/CLI.md](../reference/CLI.md) — routes and `make` targets.
 - [../architecture/SOP-BOUNDARY.md](../architecture/SOP-BOUNDARY.md) — why the
   controller observes rather than decides.
