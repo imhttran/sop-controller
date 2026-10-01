@@ -80,6 +80,9 @@ override specifications.
 - [PLAN-SOP-Controller.md](PLAN-SOP-Controller.md) — **active** run-control and
   live-activity plan (CTRL001–CTRL017). SOP records this as the active plan, so it
   intentionally remains here and is executed via `sop run docs/PLAN-SOP-Controller.md`.
+- [PLAN-Hardening.md](PLAN-Hardening.md) — observability hardening: remove
+  fixed-wait monitoring (HARD001–HARD008, completed). Execute via
+  `sop run docs/PLAN-Hardening.md`.
 - [plans/PLAN-Wrap-Up.md](plans/PLAN-Wrap-Up.md) — integration verification
   workflow (WRAP-001–WRAP-012). Execute via `sop run docs/plans/PLAN-Wrap-Up.md`.
 - [plans/PLAN-Hardening.md](plans/PLAN-Hardening.md) — controller hardening
@@ -134,6 +137,12 @@ do not define current behavior.
 - [history/PLAN-IDENTITY.md](history/PLAN-IDENTITY.md) — plan identity and
   named-plan resolution.
 - [history/PLAN.md](history/PLAN.md) — the historical v1 implementation plan.
+- [history/HARD001-REPORT.md](history/HARD001-REPORT.md) — where the fixed
+  240-second wait came from (external operator workflow only).
+- [history/HARD004-REPORT.md](history/HARD004-REPORT.md) — inactivity and timeout
+  are not lifecycle states.
+- [history/HARD008-REPORT.md](history/HARD008-REPORT.md) — validation results and
+  the final hardening/observability report.
 - [history/WRAP/](history/WRAP/) — wrap-up verification reports
   ([WRAP-006](history/WRAP/WRAP-006-VERIFICATION.md),
   [WRAP-007](history/WRAP/WRAP-007-VERIFICATION.md),
