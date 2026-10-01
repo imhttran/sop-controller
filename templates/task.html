@@ -293,7 +293,7 @@
                         hx-swap="innerHTML"
                     >
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
-                        <button class="btn">Open report</button>
+                        <button class="btn" hx-disabled-elt="this">Open report</button>
                     </form>
                 </div>
                 <div id="cmd"></div>

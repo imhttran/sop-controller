@@ -120,6 +120,57 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 	}
 }
 
+// FixCycles is projected onto TaskSummary from the same report.json runMeta
+// already reads Stage and Recovery from, and stays zero for a task with no
+// run. Retryable/HasRetryableBlocked fold over Status/Attempt/MaxAttempts.
+func TestFixCyclesAndRetryable(t *testing.T) {
+	root := newProject(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	seed(t, root,
+		// has a run reporting fix_cycles, BLOCKED with budget left -> retryable
+		`INSERT INTO tasks VALUES ('a','A','o','a','BLOCKED',NULL,1,3,'`+now+`','`+now+`')`,
+		// BLOCKED but budget spent -> not retryable
+		`INSERT INTO tasks VALUES ('b','B','o','a','BLOCKED',NULL,3,3,'`+now+`','`+now+`')`,
+		// not BLOCKED -> not retryable, no run -> FixCycles stays 0
+		`INSERT INTO tasks VALUES ('c','C','o','a','READY',NULL,0,3,'`+now+`','`+now+`')`,
+	)
+	writeArtifact(t, root, "a", "report.json", `{"id":"a","stage":"FAILED","decision":"FAIL","fix_cycles":2}`)
+
+	st, err := OpenStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	tasks, err := st.Tasks(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]TaskSummary{}
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+
+	if a := byID["a"]; a.FixCycles != 2 || !a.Retryable() {
+		t.Fatalf("a: FixCycles=%d Retryable=%v, want 2/true: %+v", a.FixCycles, a.Retryable(), a)
+	}
+	if b := byID["b"]; b.Retryable() {
+		t.Fatalf("b: Retryable=true, want false (budget spent): %+v", b)
+	}
+	if c := byID["c"]; c.FixCycles != 0 || c.Retryable() {
+		t.Fatalf("c: FixCycles=%d Retryable=%v, want 0/false (no run, not blocked): %+v", c.FixCycles, c.Retryable(), c)
+	}
+
+	detail := ProjectDetail{Tasks: tasks}
+	if !detail.HasRetryableBlocked() {
+		t.Fatal("HasRetryableBlocked() = false, want true (a is retryable)")
+	}
+	detail.Tasks = []TaskSummary{byID["b"], byID["c"]}
+	if detail.HasRetryableBlocked() {
+		t.Fatal("HasRetryableBlocked() = true, want false (no retryable tasks)")
+	}
+}
+
 func TestTaskDetailReadsArtifacts(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)

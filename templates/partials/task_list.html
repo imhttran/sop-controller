@@ -6,6 +6,7 @@
             <th>State</th>
             <th>Stage</th>
             <th>Recovery</th>
+            <th>Fix</th>
             <th>Attempts</th>
             <th>Updated</th>
         </tr>
@@ -47,6 +48,9 @@
                     class="badge {{dispositionClass .Recovery}}"
                     >{{.Recovery}}</span
                 >{{else}}<span class="muted">—</span>{{end}}
+            </td>
+            <td class="muted" data-label="Fix">
+                {{if .FixCycles}}{{.FixCycles}}{{else}}<span class="muted">—</span>{{end}}
             </td>
             <td class="muted" data-label="Attempts">
                 {{.Attempt}}/{{.MaxAttempts}}

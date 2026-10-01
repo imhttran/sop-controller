@@ -67,6 +67,10 @@ func NewServer(opts Options) http.Handler {
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/approve", h.approveStatus)
 	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/decline", h.decline)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/decline", h.declineStatus)
+	// CTRL012 per-task accept-changed approval. Delegates validation and the
+	// action to Client.AcceptChangedTask; see internal/web/handlers.go.
+	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/accept-changed", h.acceptChangedTask)
+	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/accept-changed", h.acceptChangedTaskStatus)
 
 	var handler http.Handler = mux
 	handler = csrfProtect(handler)

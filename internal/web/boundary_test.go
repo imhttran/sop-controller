@@ -102,16 +102,31 @@ func TestDashboardCommandsResolveToBoundary(t *testing.T) {
 	}
 }
 
-// TestDashboardHasNoUndocumentedCommandRoute asserts the router does not serve a
-// phantom cancel/approve command: those are SOP application operations that do
-// not exist, so the dashboard must not expose them.
+// TestDashboardHasNoUndocumentedCommandRoute asserts the router does not serve
+// a phantom approve command: approval is a SOP application operation that
+// does not exist on this generic project-command route, so the dashboard must
+// not expose it there (it has its own dedicated, always-gated route instead).
 func TestDashboardHasNoUndocumentedCommandRoute(t *testing.T) {
 	srv, id, _ := newRunServer(t, "PLANNED", nil)
-	for _, verb := range []string{"cancel", "approve"} {
+	for _, verb := range []string{"approve"} {
 		path := "/projects/" + id + "/commands/" + verb
 		if code := postWithCSRF(t, srv, path); code != http.StatusBadRequest {
 			t.Errorf("POST %s = %d, want 400 (unknown command)", path, code)
 		}
+	}
+}
+
+// TestDashboardCancelCommandRefusedWhenUnsupported asserts the CTRL006 cancel
+// route exists (unlike the undocumented approve verb above) but is refused
+// with an explicit 409 rather than started, because SOP exposes no
+// cancellation application operation (sopclient.CancelOperations() is false).
+// A 404/400 here would say the control does not exist; a 200 would manufacture
+// a fake stop. 409 is the only truthful answer until SOP exposes the verb.
+func TestDashboardCancelCommandRefusedWhenUnsupported(t *testing.T) {
+	srv, id, _ := newRunServer(t, "PLANNED", nil)
+	path := "/projects/" + id + "/commands/cancel"
+	if code := postWithCSRF(t, srv, path); code != http.StatusConflict {
+		t.Errorf("POST %s = %d, want 409 (cancellation unsupported by SOP)", path, code)
 	}
 }
 

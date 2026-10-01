@@ -66,6 +66,16 @@ recovery, review, CI, and handoff, and issue safe commands.
 - `/projects/{id}/tasks/{task}` — task detail
 - `/discovery` — configured workspace roots, depth bound, and skipped candidates
 
+## Start Controlling the Workflow
+
+Once you can see a project, [OPERATING.md](OPERATING.md) explains how to start or
+continue a run, retry a task, read activity, interpret failures, and handle human
+gates — and which decisions remain SOP's.
+
+The short version: from a project page, click **Run** (start) or **Resume**
+(continue) and let SOP choose the next task. See [RUN-CONTROLS.md](RUN-CONTROLS.md)
+for the full walkthrough.
+
 ## Phone / Same-Network Access
 
 The dashboard is local-first and binds to loopback by default. To reach it from
@@ -84,6 +94,9 @@ Binding a non-loopback address without network mode is refused. See
 
 ## Next Steps
 
+- [OPERATING.md](OPERATING.md) — operate and control the workflow.
+- [RUN-CONTROLS.md](RUN-CONTROLS.md) — start, continue, retry, cancellation.
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — common situations and CLI equivalents.
 - [PROJECT-DISCOVERY.md](PROJECT-DISCOVERY.md) — configure what it observes.
 - [DEVELOPMENT.md](DEVELOPMENT.md) — build, test, and contribute.
 - [../reference/CLI.md](../reference/CLI.md) — commands and routes.

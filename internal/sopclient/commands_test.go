@@ -76,6 +76,63 @@ func TestRecoveryCommandsDriveSop(t *testing.T) {
 	}
 }
 
+// Retry must delegate the decision to SOP's CLI and never touch the retry
+// budget itself: after Retry/RetryForce run against fakeSop (which performs no
+// real mutation), the controller's own read path must still report exactly the
+// attempt/max_attempts SOP's fixture recorded, proving the controller path
+// writes nothing to state.db on its own.
+func TestRetryDelegatesAndPreservesBudget(t *testing.T) {
+	root := newProject(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	seed(t, root, `INSERT INTO tasks VALUES ('t1','T','o','a','BLOCKED','X',2,3,'`+now+`','`+now+`')`)
+
+	bin, args := fakeSop(t)
+	c, err := New([]string{root}, bin, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	pid := config.ProjectID(root)
+
+	before, err := c.Project(context.Background(), pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var beforeTask TaskSummary
+	for _, task := range before.Tasks {
+		if task.ID == "t1" {
+			beforeTask = task
+		}
+	}
+	if beforeTask.Attempt != 2 || beforeTask.MaxAttempts != 3 {
+		t.Fatalf("seed mismatch: %+v", beforeTask)
+	}
+
+	if err := c.Retry(context.Background(), pid, "t1"); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if got := args(); !equal(got, []string{"retry", "t1"}) {
+		t.Fatalf("retry argv = %v", got)
+	}
+
+	after, err := c.Project(context.Background(), pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var afterTask TaskSummary
+	for _, task := range after.Tasks {
+		if task.ID == "t1" {
+			afterTask = task
+		}
+	}
+	if afterTask.Attempt != beforeTask.Attempt || afterTask.MaxAttempts != beforeTask.MaxAttempts {
+		t.Fatalf("controller mutated retry budget: before=%+v after=%+v", beforeTask, afterTask)
+	}
+	if !afterTask.Retryable() {
+		t.Fatalf("task should remain retryable after delegated retry: %+v", afterTask)
+	}
+}
+
 // SOP_ACTIVITY is set for controller-driven commands so SOP persists the
 // activity artifact the dashboard reads; an operator-set value is preserved.
 func TestActivityEnvDefault(t *testing.T) {

@@ -78,7 +78,7 @@
             hx-swap="innerHTML"
         >
             <input type="hidden" name="csrf" value="{{.CSRF}}" />
-            <button class="btn primary">Retry</button>
+            <button class="btn primary" hx-disabled-elt="this">Retry</button>
         </form>
         <form
             class="inline"
@@ -89,6 +89,7 @@
             <input type="hidden" name="csrf" value="{{.CSRF}}" />
             <button
                 class="btn"
+                hx-disabled-elt="this"
                 title="Retry even when the retry budget is spent (sop retry --force)"
             >
                 Force retry
@@ -101,7 +102,7 @@
             hx-swap="innerHTML"
         >
             <input type="hidden" name="csrf" value="{{.CSRF}}" />
-            <button class="btn">Open report</button>
+            <button class="btn" hx-disabled-elt="this">Open report</button>
         </form>
     </div>
     <div id="cmd"></div>

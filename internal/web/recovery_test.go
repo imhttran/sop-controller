@@ -210,7 +210,7 @@ func TestRecoveryActionsPresent(t *testing.T) {
 // The project commands include the retry-all and reconcile recovery operations
 // driven through SOP.
 func TestProjectRecoveryCommands(t *testing.T) {
-	srv, id, root := newRunServer(t, "PLANNED", nil)
+	srv, id, root := newRunServer(t, "BLOCKED", nil)
 	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", "plan.meta.json"),
 		[]byte(`{"source":"docs/PLAN.md"}`), 0o644); err != nil {
 		t.Fatal(err)

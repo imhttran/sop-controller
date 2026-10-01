@@ -3,7 +3,8 @@
 Central map of SOP Controller documentation. Each entry has a one-sentence
 description so a human or an AI agent can decide what to read.
 
-**New here?** Start with [guides/GETTING-STARTED.md](guides/GETTING-STARTED.md).
+**New here?** Start with [guides/GETTING-STARTED.md](guides/GETTING-STARTED.md),
+then [guides/OPERATING.md](guides/OPERATING.md).
 
 ## Documentation Authority
 
@@ -102,6 +103,18 @@ Concrete interfaces, values, commands, and states.
 
 - [guides/GETTING-STARTED.md](guides/GETTING-STARTED.md) — install, run, and open
   the dashboard, including optional phone access.
+- [guides/OPERATING.md](guides/OPERATING.md) — operator guide: architecture and
+  ownership, run controls, activity, failure display, human gates, troubleshooting.
+- [guides/RUN-CONTROLS.md](guides/RUN-CONTROLS.md) — how to start and continue a
+  run, retry semantics, and the documented cancellation behavior.
+- [guides/ACTIVITY-AND-PRIVACY.md](guides/ACTIVITY-AND-PRIVACY.md) — what the
+  activity timeline shows and the privacy/safety rules governing it.
+- [guides/FAILURE-DISPLAY.md](guides/FAILURE-DISPLAY.md) — how review, CI, and
+  handoff failures and diagnostics appear to an operator.
+- [guides/APPROVAL-AND-RECONCILE.md](guides/APPROVAL-AND-RECONCILE.md) — when a
+  human gate appears and how approval/reconcile actions delegate to SOP.
+- [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) — mapping observed
+  states to recovery actions, and the CLI/make equivalents of controller controls.
 - [guides/PROJECT-DISCOVERY.md](guides/PROJECT-DISCOVERY.md) — configure which
   SOP projects the controller observes, explicitly or by workspace discovery.
 - [guides/DEVELOPMENT.md](guides/DEVELOPMENT.md) — build, test, format, and

@@ -97,10 +97,63 @@ snapshot() {
   git status --porcelain --untracked-files=all 2>/dev/null | grep -v '\.agent-sdlc/' || true
 }
 
+# extract_first_json prints the first JSON object embedded in stdin (skipping any
+# surrounding prose or code fences) and exits 0; it exits 1 when there is none. It
+# replaces a greedy brace match, so a response that merely mentions braces in prose
+# can never be mistaken for the document.
+extract_first_json() {
+  python3 -c '
+import json, sys
+s = sys.stdin.read()
+dec = json.JSONDecoder()
+i = 0
+while True:
+    j = s.find("{", i)
+    if j == -1:
+        sys.exit(1)
+    try:
+        obj, _ = dec.raw_decode(s[j:])
+    except Exception:
+        i = j + 1
+        continue
+    if isinstance(obj, dict):
+        sys.stdout.write(json.dumps(obj))
+        sys.exit(0)
+    i = j + 1
+'
+}
+
+# run_document returns the JSON document a document-producing capability requires.
+# The agent is asked for JSON only, but a model may still answer in prose, so a
+# response without a JSON object is re-requested with a corrective instruction. The
+# adapter knows only that a JSON object is required; the exact shape lives in the
+# request and is interpreted by SOP, so no schema is embedded here.
+run_document() {
+  attempt=1
+  while :; do
+    if [ "$attempt" -eq 1 ]; then
+      ask=$1
+    else
+      ask="$1
+
+Your previous response contained no JSON object. Respond with ONLY the required JSON object, with no prose, no markdown, and no code fences."
+    fi
+    raw=$(run_impl "$ask")
+    if json=$(printf '%s' "$raw" | extract_first_json); then
+      printf '%s' "$json"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    if [ "$attempt" -gt 3 ]; then
+      printf '%s' "$raw"
+      return 0
+    fi
+  done
+}
+
 case "$capability" in
   PLAN|REVIEW)
-    out=$(run_impl "$prompt")
-    printf '%s' "$out" | python3 -c 'import sys,re; s=sys.stdin.read(); m=re.search(r"\{.*\}", s, re.S); print(m.group(0) if m else s)'
+    run_document "$prompt"
     ;;
 
   IMPLEMENT|FIX|DESIGN_TESTS)

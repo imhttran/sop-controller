@@ -135,8 +135,9 @@ func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
 				t.BlockedBy = append(t.BlockedBy, dep)
 			}
 		}
-		// Enrich with the latest run's stage and SOP's recovery disposition.
-		t.Stage, t.Recovery = s.runMeta(id)
+		// Enrich with the latest run's stage, SOP's recovery disposition, and the
+		// run's reported fix-cycle count.
+		t.Stage, t.Recovery, t.FixCycles = s.runMeta(id)
 	}
 	out := make([]TaskSummary, 0, len(order))
 	for _, id := range order {

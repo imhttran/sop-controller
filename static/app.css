@@ -344,6 +344,19 @@ h4 {
     color: #fff;
 }
 
+.btn.danger {
+    background: #b42318;
+    border-color: #b42318;
+    color: #fff;
+}
+
+.btn:disabled,
+.btn.htmx-request {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Tables */
 table {
     width: 100%;

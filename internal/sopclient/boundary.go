@@ -80,11 +80,10 @@ type Descriptor struct {
 // Gap reasons, recorded once so the descriptor (Boundary/Lookup) and the runtime
 // error message cannot drift apart.
 const (
-	reasonCancelRun        = "SOP exposes no cancellation application operation (`sop cancel` does not exist); cancelling an active run is a SOP lifecycle decision the controller must not simulate"
-	reasonApproveTask      = "SOP exposes no approval application operation (`sop approve` does not exist); human approval is a SOP lifecycle gate the controller must not bypass"
-	reasonDeclineTask      = "SOP exposes no decline/withhold application operation (`sop decline` does not exist); declining a human approval gate is a SOP lifecycle decision the controller must not simulate"
-	reasonChangedTasksRead = "SOP exposes no structured read of changed executed tasks awaiting reconcile; `sop reconcile <PLAN.md>` mutates at the human boundary and reports no pre-mutation list, so the controller must not compute a plan diff of its own"
-	reasonAcceptChanged    = "SOP exposes no per-task accept-changed application operation (`sop reconcile --accept-changed <task>` does not exist); accepting a changed executed task is a SOP human-boundary decision the controller must not simulate or bulk-approve"
+	reasonCancelRun     = "SOP exposes no cancellation application operation (`sop cancel` does not exist); cancelling an active run is a SOP lifecycle decision the controller must not simulate"
+	reasonApproveTask   = "SOP exposes no approval application operation (`sop approve` does not exist); human approval is a SOP lifecycle gate the controller must not bypass"
+	reasonDeclineTask   = "SOP exposes no decline/withhold application operation (`sop decline` does not exist); declining a human approval gate is a SOP lifecycle decision the controller must not simulate"
+	reasonAcceptChanged = "SOP exposes no per-task accept-changed application operation (`sop reconcile --accept-changed <task>` does not exist); accepting a changed executed task is a SOP human-boundary decision the controller must not simulate or bulk-approve"
 )
 
 // The CTRL011 human approval boundary is NOT a separate read operation. SOP owns
@@ -98,11 +97,14 @@ const (
 
 // The CTRL012 reconcile controls follow the same rule. Reconciliation stays
 // entirely inside SOP (`sop reconcile <PLAN.md>`); the controller never diffs the
-// plan, never edits state.db, and never applies a per-task approval itself. The
-// two operations the CTRL012 acceptance criteria need - reading the changed
-// executed tasks before mutation, and accepting one changed task explicitly - are
-// therefore recorded as explicit gaps until SOP exposes them, so the controller
-// can gate the UI on the boundary's own status rather than inventing state.
+// plan, never edits state.db, and never applies a per-task approval itself.
+// Reading the changed executed tasks (OpGetChangedExecutedTasks) IS supported:
+// SOP optionally writes its own changed-set report (.agent-sdlc/reconcile.json),
+// and ChangedTasks reads it back verbatim, present-or-absent, same as any other
+// SOP-persisted artifact. Accepting one changed task (OpAcceptChangedTask) is
+// NOT: SOP exposes no `--accept-changed`-equivalent application operation, so it
+// is recorded as an explicit gap until SOP exposes one, and the UI must never
+// offer a control whose only outcome is that gap.
 
 // Boundary returns the documented controller-to-SOP operation contract in the
 // PRD's order. It is the single source of truth shared by the contract document
@@ -188,9 +190,10 @@ func Boundary() []Descriptor {
 			Status:       StatusSupported,
 		},
 		{
-			Operation: OpGetChangedExecutedTasks,
-			Status:    StatusUnsupported,
-			Reason:    reasonChangedTasksRead,
+			Operation:    OpGetChangedExecutedTasks,
+			EntryPoint:   "ChangedTasks",
+			SOPOperation: "read optional .agent-sdlc/reconcile.json (SOP's own changed-executed-task report, present-or-absent; the controller computes no diff of its own)",
+			Status:       StatusSupported,
 		},
 		{
 			Operation: OpAcceptChangedTask,
@@ -274,37 +277,35 @@ func (c *Client) DeclineTask(ctx context.Context, projectID, taskID string) erro
 	return unsupported(OpDeclineTask)
 }
 
-// ChangedExecutedTasks is the CTRL012 read of the changed executed tasks
-// awaiting reconcile. SOP exposes no structured pre-mutation read of that set
-// (its reconcile verb reports no such list), so the controller must not compute
-// a plan diff of its own. This reports ErrOperationUnsupported rather than
-// returning a fabricated (or empty-success) list; the caller renders an honest
-// "not reported by SOP" state.
-//
-// It validates the project id first so an unknown project yields the same
-// ErrProjectNotFound sentinel as every other boundary operation; the gap is
-// reported only for a project that exists.
-func (c *Client) ChangedExecutedTasks(ctx context.Context, projectID string) ([]ChangedExecutedTask, error) {
-	if _, ok := c.stores[projectID]; !ok {
-		return nil, ErrProjectNotFound
-	}
-	return nil, unsupported(OpGetChangedExecutedTasks)
-}
-
 // AcceptChangedTask is the CTRL012 per-task accept-changed application
 // operation: the `--accept-changed` equivalent the controller must obtain
-// explicitly, one changed task at a time, before reconciliation mutates. SOP
-// exposes no such per-task application operation, so this reports
-// ErrOperationUnsupported rather than applying (or simulating) an approval. The
-// controller never edits state.db and never bulk-approves: each changed task
-// would need its own call here, and none is offered until SOP exposes the
-// operation.
+// explicitly, one changed task at a time, before reconciliation mutates.
 //
-// It validates the project id first so an unknown project yields the same
-// ErrProjectNotFound sentinel as every other boundary operation.
+// Every precondition is checked, in order, before anything else: an unknown
+// project yields ErrProjectNotFound; no active plan yields ErrNoActivePlan; no
+// SOP-reported changed set yields ErrChangedTasksNotReported; a task absent
+// from SOP's reported set yields ErrTaskNotInChangedSet. An approval naming an
+// unknown or unrelated task is therefore rejected before any mutation could
+// ever be attempted. Only once all of those hold does it reach the action
+// itself - and SOP exposes no such per-task application operation yet, so it
+// reports ErrOperationUnsupported rather than applying or simulating an
+// approval. The controller never edits state.db and never bulk-approves: each
+// changed task needs its own call here, and none can ever apply until SOP
+// exposes the operation.
 func (c *Client) AcceptChangedTask(ctx context.Context, projectID, taskID string) error {
-	if _, ok := c.stores[projectID]; !ok {
+	st, ok := c.stores[projectID]
+	if !ok {
 		return ErrProjectNotFound
+	}
+	if _, ok := st.PlanSource(); !ok {
+		return ErrNoActivePlan
+	}
+	changed := st.ChangedTasks()
+	if !changed.Reported {
+		return ErrChangedTasksNotReported
+	}
+	if !changed.Has(taskID) {
+		return ErrTaskNotInChangedSet
 	}
 	return unsupported(OpAcceptChangedTask)
 }
@@ -325,12 +326,34 @@ func ApprovalOperations() (approve, decline bool) {
 	return approve, decline
 }
 
+// CancelOperations reports whether SOP exposes an application operation to
+// cancel/stop an active run (CTRL006). The controller uses it to decide
+// whether a Stop control may be offered at all: a control whose only possible
+// outcome is an unsupported error must never be shown as if it could act. It
+// derives the answer from the single Boundary() source of truth, so it cannot
+// drift from the descriptor or the runtime gap error CancelRun returns. Today
+// that descriptor is StatusUnsupported (SOP has no `sop cancel` verb yet), so
+// this returns false; the moment Boundary() records OpCancelRun as
+// StatusSupported, this flips with no code change, by construction rather
+// than by a hardcoded literal. cancelSupported carries the derivation so it
+// can be exercised against both descriptor states, not just today's fixed one.
+func CancelOperations() (cancel bool) {
+	d, ok := Lookup(OpCancelRun)
+	return cancelSupported(d, ok)
+}
+
+func cancelSupported(d Descriptor, found bool) bool {
+	return found && d.Status == StatusSupported
+}
+
 // ReconcileOperations reports whether SOP exposes the CTRL012 reconcile-control
 // operations: a structured read of the changed executed tasks
 // (OpGetChangedExecutedTasks) and a per-task accept-changed application
 // operation (OpAcceptChangedTask). The controller uses it to decide whether to
 // offer the changed-task list and per-task approval at all: a control whose only
-// possible outcome is an unsupported error must never be shown. Like
+// possible outcome is an unsupported error must never be shown. listChanged is
+// true today (SOP's optional reconcile.json read works); acceptChanged is false
+// until SOP exposes a real per-task accept-changed application operation. Like
 // ApprovalOperations it derives the answer from the single Boundary() source of
 // truth, so it cannot drift from the descriptors or the runtime gap errors.
 func ReconcileOperations() (listChanged, acceptChanged bool) {

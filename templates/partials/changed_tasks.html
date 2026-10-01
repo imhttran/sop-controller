@@ -1,0 +1,84 @@
+{{- /* CTRL012: Changed executed tasks panel. SOP optionally reports the
+       changed-executed-task set awaiting reconcile via .agent-sdlc/reconcile.json;
+       the controller never computes a plan diff itself. Rendered only when
+       ReconcileListChanged is true (SOP's own read operation exists); within
+       that, ChangedTasks.Reported distinguishes "SOP reported a set" from "SOP
+       reported none" so an absent set is never shown as an empty success. Every
+       field shown is SOP's own value, verbatim.
+
+       Each pending task's accept-changed control is its own per-task approval
+       (the --accept-changed equivalent), gated on ReconcileAcceptChanged: until
+       SOP exposes that application operation the control explains the gap
+       instead of pretending it can apply. Reconcile itself is refused by the
+       command handler while any task here remains pending. */ -}}
+{{if .ReconcileListChanged}}
+<section class="panel">
+  <div class="panel-head"><h2>Changed executed tasks</h2></div>
+  {{if .ChangedTasks.Reported}}
+  {{if .ChangedTasks.Tasks}}
+  <table class="list">
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Stage</th>
+        <th>Change</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .ChangedTasks.Tasks}}
+      <tr>
+        <td>
+          <a href="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}"
+            >{{.TaskID}}</a
+          >
+          {{.Title}}
+        </td>
+        <td><span class="badge {{stageClass .Stage}}">{{.Stage}}</span></td>
+        <td class="muted small">{{.ChangeSummary}}</td>
+        <td>
+          {{if .Approved}}
+          <span class="badge s-completed">accepted</span>
+          {{else}}
+          <span class="badge s-blocked">pending</span>
+          {{end}}
+        </td>
+        <td>
+          {{if not .Approved}} {{if $.ReconcileAcceptChanged}}
+          <form
+            class="inline"
+            hx-post="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}/commands/accept-changed"
+            hx-target="#cmd"
+            hx-swap="innerHTML"
+          >
+            <input type="hidden" name="csrf" value="{{$.CSRF}}" />
+            <button class="btn" hx-disabled-elt="this" title="sop reconcile --accept-changed {{.TaskID}}">
+              Accept changed
+            </button>
+          </form>
+          {{else}}
+          <span class="badge s-unavailable">{{unavailable}}</span>
+          {{end}} {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  <p class="muted small">
+    Reconcile is refused by the dashboard while any changed executed task above
+    remains pending; each requires its own explicit approval.
+  </p>
+  {{else}}
+  <p class="muted">SOP reports no changed executed tasks awaiting reconcile.</p>
+  {{end}}
+  {{else}}
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">{{unavailable}}</span>
+    <span class="small"
+      >SOP has not reported a changed-executed-task set for the active plan.</span
+    >
+  </p>
+  {{end}}
+</section>
+{{end}}

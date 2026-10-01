@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"sop-controller/internal/config"
@@ -39,6 +40,20 @@ type discoveryPage struct {
 type projectPage struct {
 	baseData
 	Project sopclient.ProjectDetail
+	// CancelApplicable is SOP's own boundary answer (CTRL006), never a
+	// controller guess: the Stop control is offered only when this is true.
+	CancelApplicable bool
+	// ChangedTasks is the CTRL012 read of the changed executed tasks SOP
+	// reported awaiting reconcile, verbatim. Populated only when
+	// ReconcileListChanged is true; zero value otherwise.
+	ChangedTasks sopclient.ChangedTasks
+	// ReconcileListChanged/ReconcileAcceptChanged mirror
+	// sopclient.ReconcileOperations(): whether SOP's changed-task read and
+	// per-task accept-changed operation are each available. The changed-task
+	// panel and its per-task approval control are gated on these, never shown
+	// as if they could act when they cannot.
+	ReconcileListChanged   bool
+	ReconcileAcceptChanged bool
 }
 
 type taskPage struct {
@@ -136,7 +151,22 @@ func (h *Handlers) project(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "project.html", projectPage{baseData: h.base(r, "projects"), Project: detail})
+	listChanged, acceptChanged := sopclient.ReconcileOperations()
+	var changed sopclient.ChangedTasks
+	if listChanged {
+		if changed, err = h.sop.ChangedTasks(r.Context(), detail.Summary.ID); err != nil {
+			h.renderError(w, r, err)
+			return
+		}
+	}
+	h.render(w, http.StatusOK, "project.html", projectPage{
+		baseData:               h.base(r, "projects"),
+		Project:                detail,
+		CancelApplicable:       sopclient.CancelOperations(),
+		ChangedTasks:           changed,
+		ReconcileListChanged:   listChanged,
+		ReconcileAcceptChanged: acceptChanged,
+	})
 }
 
 // projectTasks is the polled task-list fragment (FR-2, FR-10).
@@ -255,6 +285,9 @@ func (h *Handlers) taskFragment(w http.ResponseWriter, r *http.Request, name str
 // per-project command key and cannot launch two runs at once.
 const startVerb = "start"
 
+// cancelVerb is the CTRL006 Stop command verb.
+const cancelVerb = "cancel"
+
 // command starts a SOP command (FR-8) and returns its status fragment.
 func (h *Handlers) command(w http.ResponseWriter, r *http.Request) {
 	project, verb := r.PathValue("project"), r.PathValue("verb")
@@ -295,7 +328,50 @@ func (h *Handlers) command(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		// CTRL012: every SOP-reported changed executed task must be reported and
+		// explicitly approved before reconcile mutates anything. Reconcile
+		// validation and mutation both stay inside SOP; this only refuses to
+		// start the command while SOP's own changed-set read shows pending
+		// (unapproved) tasks, so the human boundary cannot be stepped around
+		// through the dashboard.
+		if listChanged, _ := sopclient.ReconcileOperations(); listChanged {
+			changed, err := h.sop.ChangedTasks(r.Context(), project)
+			if err != nil {
+				h.renderError(w, r, err)
+				return
+			}
+			if pending := changed.Pending(); len(pending) > 0 {
+				h.render(w, http.StatusConflict, "error.html", errorPage{
+					baseData: h.base(r, ""),
+					Status:   http.StatusConflict,
+					Message:  "SOP reports changed executed tasks still pending approval: " + pendingTaskIDs(pending) + ". Reconcile is refused until each is explicitly accepted.",
+				})
+				return
+			}
+		}
 		fn = func(ctx context.Context) (string, error) { return h.sop.Reconcile(ctx, project, plan) }
+	case cancelVerb:
+		// CTRL006: SOP exposes no cancellation application operation today, so a
+		// cancel command whose only possible outcome is an unsupported error is
+		// refused up front (409) rather than started: the control is never
+		// advertised as able to stop a run it cannot stop. This never manufactures
+		// a PASS/LOCAL_DONE or any other success, and it touches no SOP
+		// persistence or Git state either way.
+		if !sopclient.CancelOperations() {
+			// error.html is a full standalone document; rendering it here would nest
+			// a second <html>/<head>/<body> inside the #cmd target this form swaps
+			// into. command_status.html is the fragment built for that target.
+			h.render(w, http.StatusConflict, "command_status.html", cmdStatusData{
+				baseData: h.base(r, ""),
+				Command: CommandState{
+					Verb:  cancelVerb,
+					State: "error",
+					Error: "SOP exposes no cancellation application operation; cancelling an active run is a SOP lifecycle decision the controller cannot simulate.",
+				},
+			})
+			return
+		}
+		fn = func(ctx context.Context) (string, error) { return "", h.sop.CancelRun(ctx, project) }
 	default:
 		http.Error(w, "unknown command", http.StatusBadRequest)
 		return
@@ -326,6 +402,33 @@ func (h *Handlers) commandStatus(w http.ResponseWriter, r *http.Request) {
 
 func commandURL(project, verb string) string {
 	return "/projects/" + project + "/commands/" + verb
+}
+
+// pendingTaskIDs joins the ids of changed executed tasks still awaiting
+// approval, for a human-readable refusal message.
+func pendingTaskIDs(pending []sopclient.ChangedExecutedTask) string {
+	ids := make([]string, len(pending))
+	for i, t := range pending {
+		ids[i] = t.TaskID
+	}
+	return strings.Join(ids, ", ")
+}
+
+// acceptChangedTask is the CTRL012 per-task accept-changed approval (the
+// `--accept-changed` equivalent). It delegates validation and the action
+// itself entirely to Client.AcceptChangedTask: an unknown/unrelated task, an
+// unreported changed set, or no active plan is rejected before any mutation
+// could occur, and the action itself is refused with SOP's own unsupported gap
+// until SOP exposes a real per-task accept-changed application operation. This
+// handler never approves anything on its own.
+func (h *Handlers) acceptChangedTask(w http.ResponseWriter, r *http.Request) {
+	h.taskCommand(w, r, "accept-changed", func(ctx context.Context, project, taskID string) (string, error) {
+		return "", h.sop.AcceptChangedTask(ctx, project, taskID)
+	})
+}
+
+func (h *Handlers) acceptChangedTaskStatus(w http.ResponseWriter, r *http.Request) {
+	h.taskCommandStatus(w, r, "accept-changed")
 }
 
 // retry requeues a single task through SOP (FR-8).

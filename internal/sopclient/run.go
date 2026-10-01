@@ -264,9 +264,10 @@ func toClassification(c classificationDoc) *Classification {
 }
 
 // runMeta returns the cheap display fields for the task list: the latest run
-// stage and SOP's recovery disposition. It reads only the small state and
-// classification artifacts, so it stays inexpensive when listing many tasks.
-func (s *Store) runMeta(taskID string) (stage, recovery string) {
+// stage, SOP's recovery disposition, and the run's reported fix-cycle count.
+// It reads only the small state, classification, and report artifacts, so it
+// stays inexpensive when listing many tasks.
+func (s *Store) runMeta(taskID string) (stage, recovery string, fixCycles int) {
 	dir := s.runDir(taskID)
 	var st stateDoc
 	if readJSON(filepath.Join(dir, "state.json"), &st) {
@@ -276,7 +277,11 @@ func (s *Store) runMeta(taskID string) (stage, recovery string) {
 	if readJSON(filepath.Join(dir, "classification.json"), &cls) {
 		recovery = cls.Disposition
 	}
-	return stage, recovery
+	var rep reportDoc
+	if readJSON(filepath.Join(dir, "report.json"), &rep) {
+		fixCycles = rep.FixCycles
+	}
+	return stage, recovery, fixCycles
 }
 
 // maxActivityEvents bounds the activity returned for one task. SOP appends to

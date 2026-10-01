@@ -341,7 +341,7 @@ func TestProjectViewDisplaysTaskCounts(t *testing.T) {
 		"running badge shown":      strings.Contains(body, "running"),
 		"ready badge shown":        strings.Contains(body, "ready"),
 		"blocked badge shown":      strings.Contains(body, "blocked"),
-		"commands section shown":   strings.Contains(body, "Commands") && strings.Contains(body, "Run"),
+		"commands section shown":   strings.Contains(body, "Commands") && strings.Contains(body, "Validate"),
 	}
 	for check, passed := range checks {
 		if !passed {
@@ -462,9 +462,9 @@ func TestCommandsReachSOPSafely(t *testing.T) {
 	}
 	// Verify command forms are present with CSRF protection
 	checks := map[string]bool{
-		"run command form present": strings.Contains(body, `/projects/`+id+`/commands/run`),
-		"csrf field present":       strings.Contains(body, "csrf"),
-		"post method implied":      strings.Contains(body, "hx-post"),
+		"validate command form present": strings.Contains(body, `/projects/`+id+`/commands/validate`),
+		"csrf field present":            strings.Contains(body, "csrf"),
+		"post method implied":           strings.Contains(body, "hx-post"),
 	}
 	for check, passed := range checks {
 		if !passed {

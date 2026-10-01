@@ -70,21 +70,9 @@
 
             <section class="panel">
                 <div class="panel-head"><h2>Commands</h2></div>
+                {{$active := activeTask .Project}}
                 <div class="actions">
-                    <form
-                        class="inline"
-                        hx-post="/projects/{{.Project.Summary.ID}}/commands/run"
-                        hx-target="#cmd"
-                        hx-swap="innerHTML"
-                    >
-                        <input type="hidden" name="csrf" value="{{.CSRF}}" />
-                        <button
-                            class="btn primary"
-                            title="Start an idle plan or continue an incomplete plan; SOP selects the runnable task (sop run / sop resume)"
-                        >
-                            Run
-                        </button>
-                    </form>
+                    {{if and (not $active) (ne .Project.Summary.State "complete")}}
                     <form
                         class="inline"
                         hx-post="/projects/{{.Project.Summary.ID}}/commands/start"
@@ -93,12 +81,14 @@
                     >
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
                         <button
-                            class="btn"
+                            class="btn primary"
+                            hx-disabled-elt="this"
                             title="Start an idle plan or continue an incomplete plan; SOP selects the runnable task (sop run / sop resume)"
                         >
                             Start / Continue
                         </button>
                     </form>
+                    {{end}}
                     <form
                         class="inline"
                         hx-post="/projects/{{.Project.Summary.ID}}/commands/validate"
@@ -106,7 +96,7 @@
                         hx-swap="innerHTML"
                     >
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
-                        <button class="btn">Validate</button>
+                        <button class="btn" hx-disabled-elt="this">Validate</button>
                     </form>
                     <form
                         class="inline"
@@ -115,8 +105,9 @@
                         hx-swap="innerHTML"
                     >
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
-                        <button class="btn">Review</button>
+                        <button class="btn" hx-disabled-elt="this">Review</button>
                     </form>
+                    {{if .Project.HasRetryableBlocked}}
                     <form
                         class="inline"
                         hx-post="/projects/{{.Project.Summary.ID}}/commands/retry-all"
@@ -126,11 +117,19 @@
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
                         <button
                             class="btn"
+                            hx-disabled-elt="this"
                             title="Requeue every BLOCKED task that still has retry budget (sop retry --all)"
                         >
                             Retry all blocked
                         </button>
                     </form>
+                    {{else}}
+                    <p class="muted">
+                        Retry all blocked:
+                        <span class="badge s-unavailable">{{unavailable}}</span>
+                        <span class="small">No BLOCKED task currently has retry budget remaining.</span>
+                    </p>
+                    {{end}}
                     {{if .Project.PlanSource}}
                     <form
                         class="inline"
@@ -141,6 +140,7 @@
                         <input type="hidden" name="csrf" value="{{.CSRF}}" />
                         <button
                             class="btn"
+                            hx-disabled-elt="this"
                             title="Reconcile {{.Project.PlanSource}} with the active plan (sop reconcile)"
                         >
                             Reconcile plan
@@ -148,8 +148,40 @@
                     </form>
                     {{end}}
                 </div>
+                {{if $active}}
+                <div class="actions">
+                    {{if .CancelApplicable}}
+                    <form
+                        class="inline"
+                        hx-post="/projects/{{.Project.Summary.ID}}/commands/cancel"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="{{.CSRF}}" />
+                        <button
+                            class="btn danger"
+                            hx-disabled-elt="this"
+                            title="Stop the active run (sop cancel)"
+                        >
+                            Stop
+                        </button>
+                    </form>
+                    {{else}}
+                    <p class="muted">
+                        Stop: <span class="badge s-unavailable">{{unavailable}}</span>
+                        <span class="small"
+                            >SOP exposes no cancellation application operation;
+                            stopping this run is a SOP lifecycle decision the
+                            controller cannot simulate.</span
+                        >
+                    </p>
+                    {{end}}
+                </div>
+                {{end}}
                 <div id="cmd"></div>
             </section>
+
+            {{template "changed_tasks.html" .}}
 
             <section class="panel">
                 <div class="panel-head"><h2>Tasks</h2></div>

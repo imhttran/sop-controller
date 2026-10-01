@@ -53,7 +53,7 @@
     hx-swap="innerHTML"
   >
     <input type="hidden" name="csrf" value="{{.CSRF}}" />
-    <button class="btn">Approve (SOP gate)</button>
+    <button class="btn" hx-disabled-elt="this">Approve (SOP gate)</button>
   </form>
   {{end}}
   {{if $a.DeclineApplicable}}
@@ -64,7 +64,7 @@
     hx-swap="innerHTML"
   >
     <input type="hidden" name="csrf" value="{{.CSRF}}" />
-    <button class="btn">Decline</button>
+    <button class="btn" hx-disabled-elt="this">Decline</button>
   </form>
   {{end}}
 </div>

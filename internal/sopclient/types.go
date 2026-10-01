@@ -127,6 +127,17 @@ func (p ProjectDetail) ActiveTask() (string, bool) {
 	return "", false
 }
 
+// HasRetryableBlocked reports whether any task in the project is retryable
+// BLOCKED work.
+func (p ProjectDetail) HasRetryableBlocked() bool {
+	for _, t := range p.Tasks {
+		if t.Retryable() {
+			return true
+		}
+	}
+	return false
+}
+
 // TaskSummary is one row in the project workflow view (FR-2).
 type TaskSummary struct {
 	ID            string
@@ -146,6 +157,9 @@ type TaskSummary struct {
 	// Recovery is SOP's recovery disposition for the latest failure
 	// (AUTO_FIX/CONTINUE/RETRY/REPLAN/NEEDS_HUMAN), or "" when none.
 	Recovery string
+	// FixCycles is the latest run's reported auto-fix cycle count, or 0 when
+	// the task has no run.
+	FixCycles int
 }
 
 // State is the coarse display state for this task.
@@ -165,6 +179,12 @@ func (t TaskSummary) Retries() (int, bool) {
 func (t TaskSummary) Eligible() bool {
 	return len(t.BlockedBy) == 0 &&
 		(t.Status == StatusReady || t.Status == StatusPlanned)
+}
+
+// Retryable reports whether this is BLOCKED work SOP still has retry budget
+// for.
+func (t TaskSummary) Retryable() bool {
+	return t.Status == StatusBlocked && t.Attempt < t.MaxAttempts
 }
 
 // TaskDetail is the FR-3 task view.
