@@ -13,6 +13,12 @@ type CommandState struct {
 	Output  string
 	Error   string
 	Started time.Time
+	// TaskID/Stage/Attempt surface the task SOP is actively working, when SOP
+	// exposes one. All three stay zero-value (absent, never fabricated) unless
+	// populated from a live sopclient read.
+	TaskID  string
+	Stage   string
+	Attempt int
 }
 
 // Running reports whether the command is still in flight.

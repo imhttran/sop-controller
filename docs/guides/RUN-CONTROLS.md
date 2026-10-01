@@ -44,10 +44,34 @@ it is SOP that resumes the workflow.
 
 1. Open `http://127.0.0.1:8080/projects` and pick your project.
 2. Click **Run** (or **Resume** to continue a paused plan).
-3. Watch the project workflow view and the activity timeline as SOP progresses.
+3. **Observe immediately** — watch the project activity view and the live
+   activity timeline as SOP progresses. There is no need to wait a fixed number
+   of minutes first; see the debugging workflow below.
 4. When SOP reaches a review, CI, or human gate, read
    [FAILURE-DISPLAY.md](FAILURE-DISPLAY.md) and
    [APPROVAL-AND-RECONCILE.md](APPROVAL-AND-RECONCILE.md).
+
+## Watching a Run
+
+Execution, observation, polling, and timeout are four separate things. For the
+full explanation, see
+[EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md). In short:
+
+- **Observation is immediate.** Use the controller's native activity/status
+  surfaces: the activity view (`/projects/{project}/activity`) and the live
+  activity stream (`/projects/{project}/activity/stream`). That stream is the
+  primary solution; do not build a custom watcher.
+- **Polling is only a fallback.** If the live stream is unavailable, the
+  `/projects/{project}/activity/window` endpoint provides a short, bounded,
+  configurable re-read (`SOP_CONTROLLER_POLL`, default `3s`). A short bounded
+  loop around it is an explicit fallback, not the default.
+- **No fixed four-minute wait is required.** There is no arbitrary multi-minute
+  pause in the workflow; waiting a fixed interval only delays reacting to SOP's
+  real state. To watch the controller process itself, use `make logs` (tails
+  `.run/sop-controller.log`) or `tail -f .run/sop-controller.log`.
+- **Timeout is separate.** `SOP_CONTROLLER_COMMAND_TIMEOUT` (default `15m`)
+  bounds one command's execution and returns a truthful timeout error; it does
+  not bound observation and does not change SOP state.
 
 ## Retry
 
@@ -117,6 +141,8 @@ next poll. When you are ready to continue, use **Resume** (`sop resume`).
 
 ## Related Documentation
 
+- [EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md) — execution vs
+  observation vs polling vs timeout, and the debugging workflow.
 - [../reference/CLI.md](../reference/CLI.md) — commands and routes.
 - [../reference/STATUS-AND-RECOVERY.md](../reference/STATUS-AND-RECOVERY.md) —
   statuses, stages, recovery dispositions and actions.

@@ -35,6 +35,12 @@
                     {{.Project.Plan.Source}}{{end}}
                 </div>
                 <div class="counts">
+                    {{if .Project.Summary.NeedsAttention}}
+                    <a class="badge s-attention" href="#tasks"
+                        >{{.Project.Summary.NeedsAttention}} needs your
+                        attention</a
+                    >
+                    {{end}}
                     <span class="badge s-completed"
                         >{{.Project.Summary.Completed}} complete</span
                     >
@@ -203,6 +209,7 @@
                     data-project="{{.Project.Summary.ID}}"
                     data-stream-url="/projects/{{.Project.Summary.ID}}/activity/stream"
                     data-window-url="/projects/{{.Project.Summary.ID}}/activity/window"
+                    data-poll-ms="{{.Poll.Milliseconds}}"
                 >
                     <p class="muted">Loading…</p>
                 </div>

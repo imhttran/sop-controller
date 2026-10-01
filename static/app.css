@@ -256,6 +256,12 @@ h4 {
     color: #b42318;
 }
 
+.s-attention {
+    background: #ffe6e3;
+    color: #a1322a;
+    border-color: #a1322a;
+}
+
 .state-running,
 .state-attention {
     color: #8a5a00;
@@ -279,7 +285,8 @@ h4 {
     .s-waiting,
     .s-blocked,
     .s-completed,
-    .s-failed {
+    .s-failed,
+    .s-attention {
         background: var(--raised);
     }
 }

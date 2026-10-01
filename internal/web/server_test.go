@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -51,6 +52,14 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 // activity read never invokes that binary, which the S4 transport-isolation test
 // asserts.
 func newTestServerRoot(t *testing.T, sopBin string) (*httptest.Server, string, string) {
+	t.Helper()
+	return newTestServerRootPoll(t, sopBin, time.Second)
+}
+
+// newTestServerRootPoll is newTestServerRoot with a caller-chosen poll
+// cadence, so a test can assert the configured interval (not the 1s default)
+// reaches the rendered page.
+func newTestServerRootPoll(t *testing.T, sopBin string, poll time.Duration) (*httptest.Server, string, string) {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, ".agent-sdlc")
@@ -104,7 +113,7 @@ func newTestServerRoot(t *testing.T, sopBin string) (*httptest.Server, string, s
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(NewServer(Options{SOP: sop, Views: views, StaticFS: staticFS, Poll: time.Second, CommandTimeout: time.Minute}))
+	srv := httptest.NewServer(NewServer(Options{SOP: sop, Views: views, StaticFS: staticFS, Poll: poll, CommandTimeout: time.Minute}))
 	t.Cleanup(srv.Close)
 	return srv, config.ProjectID(root), root
 }
@@ -150,6 +159,21 @@ func TestPagesRender(t *testing.T) {
 	}
 }
 
+// HARD003 S1: the activity panel's poll fallback must use the server's
+// configured cadence (baseData.Poll), not a browser-side guess, so changing
+// SOP_CONTROLLER_POLL actually changes the fallback rate used in the browser.
+func TestActivityPanelExposesConfiguredPollMs(t *testing.T) {
+	srv, id, _ := newTestServerRootPoll(t, "sop", 250*time.Millisecond)
+
+	code, body := get(t, srv.URL+"/projects/"+id)
+	if code != 200 {
+		t.Fatalf("project: %d", code)
+	}
+	if !strings.Contains(body, `data-poll-ms="250"`) {
+		t.Fatalf("project page missing data-poll-ms=\"250\" for configured 250ms poll: %s", body)
+	}
+}
+
 func TestFragmentsRender(t *testing.T) {
 	srv, id := newTestServer(t)
 	for _, path := range []string{
@@ -186,6 +210,79 @@ func TestCommandRequiresCSRF(t *testing.T) {
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("POST without CSRF: %d, want 403", resp.StatusCode)
 	}
+}
+
+// postCommand starts a command with a valid CSRF token and returns the
+// handler's immediate response (status fragment HTML) along with how long
+// the POST took to return.
+func postCommand(t *testing.T, client *http.Client, projectPageURL, commandURL string) (time.Duration, string) {
+	t.Helper()
+	resp, err := client.Get(projectPageURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var csrfToken string
+	for _, c := range resp.Cookies() {
+		if c.Name == "sop_ctrl_csrf" {
+			csrfToken = c.Value
+		}
+	}
+	resp.Body.Close()
+
+	start := time.Now()
+	resp, err = client.Post(commandURL, "application/x-www-form-urlencoded", strings.NewReader("csrf="+csrfToken))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	elapsed := time.Since(start)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return elapsed, string(body)
+}
+
+// TestTaskCommandReturnsImmediatelyWithStage verifies HARD002: starting a
+// task-scoped command (here, retry on t1, which SOP already persisted as
+// IMPLEMENTING, attempt 1) returns before the background command finishes
+// and the very first response already shows that task's real stage/attempt.
+func TestTaskCommandReturnsImmediatelyWithStage(t *testing.T) {
+	srv, id := newTestServer(t)
+	client := &http.Client{Jar: mustJar(t)}
+
+	elapsed, body := postCommand(t, client, srv.URL+"/projects/"+id, srv.URL+"/projects/"+id+"/tasks/t1/commands/retry")
+	if elapsed > 3*time.Second {
+		t.Fatalf("POST took %s, want an immediate (non-blocking) return", elapsed)
+	}
+	if !strings.Contains(body, "IMPLEMENTING") {
+		t.Errorf("response missing real stage IMPLEMENTING for t1, got: %s", body)
+	}
+	if !strings.Contains(body, "attempt 1") {
+		t.Errorf("response missing real attempt 1 for t1, got: %s", body)
+	}
+}
+
+// TestTaskCommandNoFabricatedStage verifies HARD002's no-fabrication rule: a
+// task with no run history (t2 has never run) must not show a stage or
+// attempt, since SOP persisted none.
+func TestTaskCommandNoFabricatedStage(t *testing.T) {
+	srv, id := newTestServer(t)
+	client := &http.Client{Jar: mustJar(t)}
+
+	_, body := postCommand(t, client, srv.URL+"/projects/"+id, srv.URL+"/projects/"+id+"/tasks/t2/commands/retry")
+	if strings.Contains(body, "stage") {
+		t.Errorf("response fabricated a stage for t2, which has no run history: %s", body)
+	}
+}
+
+func mustJar(t *testing.T) *cookiejar.Jar {
+	t.Helper()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return jar
 }
 
 // waitState polls until a command leaves "running", or fails the test.
@@ -261,6 +358,44 @@ func TestCommandTimeout(t *testing.T) {
 	}
 	if !strings.Contains(st.Error, "context deadline exceeded") && !strings.Contains(st.Error, "DeadlineExceeded") {
 		t.Fatalf("error = %q, should mention timeout", st.Error)
+	}
+}
+
+// TestCommandTimeoutDoesNotMutateSOPLifecycleState guards HARD004: a
+// CommandRunner timeout must never write to SOP's own persisted task/run
+// state. It reads a fixture task through the same sopclient path the
+// dashboard uses, triggers an unrelated CommandRunner timeout, then re-reads
+// the task and asserts it is byte-for-byte unchanged.
+func TestCommandTimeoutDoesNotMutateSOPLifecycleState(t *testing.T) {
+	_, id, root := newTestServerRoot(t, "sop")
+
+	sop, err := sopclient.New([]string{root}, "sop", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sop.Close()
+
+	before, err := sop.Task(context.Background(), id, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runner := NewCommandRunner(50 * time.Millisecond)
+	fn := func(ctx context.Context) (string, error) {
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+	runner.Start(id, "slow", fn)
+	if st := waitState(t, runner, id, "slow"); st.State != "error" {
+		t.Fatalf("state = %q, want error (timeout)", st.State)
+	}
+
+	after, err := sop.Task(context.Background(), id, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("task state mutated by command timeout:\nbefore: %+v\nafter:  %+v", before, after)
 	}
 }
 
@@ -342,6 +477,10 @@ func TestProjectViewDisplaysTaskCounts(t *testing.T) {
 		"ready badge shown":        strings.Contains(body, "ready"),
 		"blocked badge shown":      strings.Contains(body, "blocked"),
 		"commands section shown":   strings.Contains(body, "Commands") && strings.Contains(body, "Validate"),
+		// t3 reports a NEEDS_HUMAN classification, so the hero must surface a
+		// "needs your attention" count rather than letting it read as ordinary
+		// BLOCKED work.
+		"needs-attention hero badge shown": strings.Contains(body, "1 needs your") && strings.Contains(body, "s-attention"),
 	}
 	for check, passed := range checks {
 		if !passed {

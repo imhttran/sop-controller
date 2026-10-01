@@ -31,6 +31,9 @@
         var windowURL = root.getAttribute("data-window-url");
         if (!project || !windowURL) return;
 
+        var pollMs = parseInt(root.getAttribute("data-poll-ms"), 10);
+        if (!(pollMs > 0)) pollMs = POLL_MS;
+
         var cursorKey = "sopctrlcursor:" + project;
         var seen = Object.create(null);
         var order = [];
@@ -193,7 +196,7 @@
 
         function startSSE() {
             if (!streamURL || typeof EventSource === "undefined") {
-                setInterval(poll, POLL_MS);
+                setInterval(poll, pollMs);
                 return;
             }
             var url = streamURL;
@@ -214,7 +217,7 @@
                 // Fall back to bounded polling; the same cursor keeps dedup,
                 // so the refresh does not duplicate lifecycle rows.
                 poll();
-                setInterval(poll, POLL_MS);
+                setInterval(poll, pollMs);
             };
         }
 

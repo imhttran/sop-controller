@@ -2,6 +2,11 @@
 
 Point-in-time, non-normative record produced by the SOP plan `plan-hardening`.
 
+Re-verified 2026-10-01: the search below was re-run against the current
+working tree (clean, `0858633`) and reproduces the same matches and
+conclusion as the original run. No new `.go`/`.sh` occurrence of `sleep 240`,
+`240`, or `tail -25`/`sop-run.log` was introduced since the original report.
+
 ## HARD001-REPORT
 
 ### Search transcript

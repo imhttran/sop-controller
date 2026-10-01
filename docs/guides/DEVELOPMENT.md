@@ -32,6 +32,22 @@ make clean     # remove .run artifacts
 `make help` prints the same list. Override the listen address with
 `ADDR=127.0.0.1:9000`.
 
+## Watching a Run While You Develop
+
+Execution, observation, polling, and timeout are distinct concepts; see
+[EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md). In practice:
+
+- Observe immediately through the controller's native activity/status surfaces
+  — the activity view (`/projects/{project}/activity`) and the live activity
+  stream (`/projects/{project}/activity/stream`). These are the primary solution;
+  no custom watcher is needed.
+- For the controller process itself, `make logs` tails `.run/sop-controller.log`
+  (equivalently `tail -f .run/sop-controller.log`) — immediate observation.
+- A short, bounded polling loop (`SOP_CONTROLLER_POLL`, default `3s`, via the
+  `/projects/{project}/activity/window` fallback) is an explicit fallback only.
+- **No fixed four-minute wait is required.** `SOP_CONTROLLER_COMMAND_TIMEOUT`
+  (default `15m`) bounds a single command's execution, not observation.
+
 ## Pre-commit checks
 
 Enable the repository's pre-commit checks (gofmt + build + vet + test):
@@ -67,3 +83,5 @@ sopagent_test.go       tests for the command-agent adapter
 - [../architecture/OVERVIEW.md](../architecture/OVERVIEW.md) — system structure.
 - [../reference/CLI.md](../reference/CLI.md) — routes and SOP commands.
 - [../requirements/PRD.md](../requirements/PRD.md) — product requirements and constraints.
+- [EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md) — execution vs
+  observation vs polling vs timeout.

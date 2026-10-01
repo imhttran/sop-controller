@@ -59,15 +59,15 @@ func statusClass(status string) string {
 		return "s-completed"
 	case "BLOCKED":
 		return "s-blocked"
+	case "FAILED":
+		return "s-failed"
 	case "READY":
 		return "s-ready"
 	case "PLANNED":
 		return "s-planned"
+	default:
+		return "s-running"
 	}
-	if status == sopclient.StatusFixRequired {
-		return "s-failed"
-	}
-	return "s-running"
 }
 
 // stageClass maps SOP's run stage to a badge style.

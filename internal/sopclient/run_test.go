@@ -34,7 +34,7 @@ func TestTaskStateCategories(t *testing.T) {
 		StatusImplementing: "RUNNING",
 		StatusReview:       "RUNNING",
 		StatusCIRunning:    "RUNNING",
-		StatusFixRequired:  "RUNNING",
+		StatusFixRequired:  "FAILED",
 	}
 	for status, want := range cases {
 		if got := TaskState(status); got != want {

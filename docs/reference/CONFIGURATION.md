@@ -47,6 +47,25 @@ before the dashboard terminates it. This applies uniformly to all commands (run,
 resume, validate, review, retry). The timeout is enforced by the dashboard's
 command runner; exceeding it returns a timeout error in the UI.
 
+This is a different concern from `SOP_CONTROLLER_POLL`: the timeout bounds how
+long one SOP command process (started by a user action) may run
+(`internal/sopclient/commands.go`'s `Commander.Exec`), while the poll interval
+only controls how often the dashboard re-fetches SOP state that SOP itself
+already persisted (`internal/web/activity_stream.go`). Lowering the poll
+interval does not make commands run faster or time out sooner; raising the
+command timeout does not change how often the UI refreshes.
+
+When a command exceeds `SOP_CONTROLLER_COMMAND_TIMEOUT`, the dashboard returns
+a truthful error of the form `sop <verb> timed out after <duration>` (surfaced
+in the command-status UI), never a silent success or a generic failure
+message. This timeout is purely a dashboard-side bound on the child process:
+it never writes to or otherwise mutates SOP's own persisted task/lifecycle
+state under `.agent-sdlc/runs/<task>/*`. That state remains exactly whatever
+SOP itself last wrote; the dashboard's `CommandRunner` only records the
+timeout in its own in-memory, per-project/verb status map
+(`internal/web/commands.go`), which is separate from SOP's state and is never
+written to disk.
+
 ## Related Documentation
 
 - [CLI.md](CLI.md) — commands and routes.

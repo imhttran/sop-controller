@@ -56,6 +56,8 @@ func TaskState(status string) string {
 		return "DONE"
 	case status == StatusBlocked:
 		return "BLOCKED"
+	case status == StatusFixRequired:
+		return "FAILED"
 	case status == StatusReady:
 		return "READY"
 	case status == StatusPlanned:
@@ -77,6 +79,11 @@ type ProjectSummary struct {
 	Planned     int
 	Blocked     int
 	FixRequired int
+	// NeedsAttention is the count of tasks reporting a human decision boundary
+	// (TaskSummary.NeedsHuman) plus any pending changed-executed task SOP
+	// reported awaiting reconcile. It is never a duplicate lifecycle state: it
+	// is a tally over the same SOP-reported signals the other counts use.
+	NeedsAttention int
 }
 
 // PercentComplete is completed/total as an integer percentage.
@@ -160,6 +167,14 @@ type TaskSummary struct {
 	// FixCycles is the latest run's reported auto-fix cycle count, or 0 when
 	// the task has no run.
 	FixCycles int
+	// NeedsHuman reports whether SOP reports a human decision boundary for this
+	// task, derived by the same humanBoundary evidence TaskDetail.Approval uses
+	// (NEEDS_HUMAN disposition, WAITING_FOR_HUMAN stage, or BLOCKED with a human
+	// classification), so the list and detail view can never disagree.
+	NeedsHuman bool
+	// ApprovalKind is the SOP-reported boundary source (one of the
+	// ApprovalKind* constants) when NeedsHuman is true, or "" otherwise.
+	ApprovalKind string
 }
 
 // State is the coarse display state for this task.

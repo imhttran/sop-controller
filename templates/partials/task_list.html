@@ -28,6 +28,15 @@
                 {{end}}
             </td>
             <td data-label="State">
+                {{if .NeedsHuman}}
+                <div>
+                    <a
+                        class="badge s-attention"
+                        href="/projects/{{$pid}}/tasks/{{.ID}}"
+                        >Needs your attention</a
+                    >
+                </div>
+                {{end}}
                 <span class="badge {{statusClass .Status}}">{{.State}}</span>
                 <div class="muted small">{{.Status}}</div>
                 {{if .BlockedReason}}

@@ -114,6 +114,27 @@ type Approval struct {
 	FinalGateRecorded bool
 }
 
+// humanBoundary derives whether SOP reports a human decision boundary for a
+// task, and which ApprovalKind evidences it, from the task's status and run
+// info alone (SOP's run classification disposition/Kind, run stage, and task
+// status). It is the single derivation both Store.approval() (TaskDetail) and
+// Store.Tasks() (TaskSummary) call, so the task-detail approval panel and the
+// task-list/project-hero projections can never disagree about which tasks need
+// a human decision. See the file doc above for the evidence rule itself; this
+// function only implements it.
+func humanBoundary(status string, run RunInfo) (present bool, kind string) {
+	switch {
+	case run.Classification.HumanRequired():
+		return true, ApprovalKindNeedsHuman
+	case run.Stage == StageWaitingForHuman:
+		return true, ApprovalKindWaitingForHuman
+	case status == StatusBlocked && run.Classification.Category() == CategoryHuman:
+		return true, ApprovalKindBlocked
+	default:
+		return false, ""
+	}
+}
+
 // approval derives the approval boundary for a task from SOP-persisted evidence
 // only. It returns Present=false when SOP reports no human boundary, so an
 // approval action can only ever appear when SOP itself requested one. It also
@@ -137,42 +158,18 @@ func (s *Store) approval(task TaskDetail) Approval {
 	a.Applicable = approveOK || declineOK
 	a.ActionReason = approvalActionReason(approveOK, declineOK)
 
-	// SOP's run classification is the strongest human signal, independent of
-	// task status: a NEEDS_HUMAN disposition or a human Kind is SOP asking for a
-	// human decision.
-	if task.Run.Classification.HumanRequired() {
-		a.Present = true
-		a.Kind = ApprovalKindNeedsHuman
+	present, kind := humanBoundary(task.Status, task.Run)
+	if !present {
+		// No boundary: there is nothing to act on, so no action reason is shown.
+		a.ActionReason = ""
+		return a
+	}
+	a.Present = true
+	a.Kind = kind
+	if task.Run.Classification != nil {
 		a.Disposition = task.Run.Classification.Disposition
 		a.Evidence = sanitizeDetail(task.Run.Classification.Reason)
-		return a
 	}
-	// SOP parked the run at the WAITING_FOR_HUMAN lifecycle stage: a human gate.
-	if task.Run.Stage == StageWaitingForHuman {
-		a.Present = true
-		a.Kind = ApprovalKindWaitingForHuman
-		if task.Run.Classification != nil {
-			a.Disposition = task.Run.Classification.Disposition
-			a.Evidence = sanitizeDetail(task.Run.Classification.Reason)
-		}
-		return a
-	}
-	// SOP's task status BLOCKED is a human boundary ONLY when SOP persisted a
-	// human classification. A non-empty blocked_reason is NOT sufficient: SOP
-	// records blocked_reason for non-human reasons too (dependency waiting,
-	// environment/tooling), so inferring a human gate from it would surface an
-	// approval boundary SOP never requested. A task blocked solely by an
-	// incomplete dependency is ordinary scheduling that SOP resolves by running
-	// the dependency, so Present stays false.
-	if task.Status == StatusBlocked && task.Run.Classification.Category() == CategoryHuman {
-		a.Present = true
-		a.Kind = ApprovalKindBlocked
-		a.Disposition = task.Run.Classification.Disposition
-		a.Evidence = sanitizeDetail(task.Run.Classification.Reason)
-		return a
-	}
-	// No boundary: there is nothing to act on, so no action reason is shown.
-	a.ActionReason = ""
 	return a
 }
 

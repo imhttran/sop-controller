@@ -475,7 +475,7 @@ func (h *Handlers) taskCommand(w http.ResponseWriter, r *http.Request, verb stri
 	_, _ = h.runner.Start(project, key, func(ctx context.Context) (string, error) {
 		return fn(ctx, project, taskID)
 	})
-	h.renderCommand(w, r, project, key, taskCommandURL(project, taskID, verb))
+	h.renderTaskCommand(w, r, project, taskID, key, taskCommandURL(project, taskID, verb))
 }
 
 // taskCommandStatus renders the polling status fragment for a task-scoped
@@ -486,7 +486,25 @@ func (h *Handlers) taskCommandStatus(w http.ResponseWriter, r *http.Request, ver
 		h.notFound(w, r, "Project not found")
 		return
 	}
-	h.renderCommand(w, r, project, verb+":"+taskID, taskCommandURL(project, taskID, verb))
+	h.renderTaskCommand(w, r, project, taskID, verb+":"+taskID, taskCommandURL(project, taskID, verb))
+}
+
+// renderTaskCommand renders a task-scoped command's status, best-effort
+// enriched with that task's current Stage/Attempt from SOP. A failed or
+// not-found Task() read leaves Stage/Attempt empty rather than erroring the
+// command-status response.
+func (h *Handlers) renderTaskCommand(w http.ResponseWriter, r *http.Request, project, taskID, key, url string) {
+	st := h.commandState(project, key)
+	if detail, err := h.sop.Task(r.Context(), project, taskID); err == nil {
+		st.TaskID = taskID
+		st.Stage = detail.Stage
+		st.Attempt = detail.Attempt
+	}
+	h.render(w, http.StatusOK, "command_status.html", cmdStatusData{
+		baseData:   h.base(r, ""),
+		Command:    st,
+		CommandURL: url,
+	})
 }
 
 func taskCommandURL(project, taskID, verb string) string {
@@ -494,13 +512,30 @@ func taskCommandURL(project, taskID, verb string) string {
 }
 
 func (h *Handlers) renderCommand(w http.ResponseWriter, r *http.Request, project, key, url string) {
-	st, ok := h.runner.Status(project, key)
-	if !ok {
-		st = CommandState{Verb: key, State: "idle"}
+	st := h.commandState(project, key)
+	if detail, err := h.sop.Project(r.Context(), project); err == nil {
+		if taskID, ok := detail.ActiveTask(); ok {
+			for _, t := range detail.Tasks {
+				if t.ID == taskID {
+					st.TaskID, st.Stage, st.Attempt = t.ID, t.Stage, t.Attempt
+					break
+				}
+			}
+		}
 	}
 	h.render(w, http.StatusOK, "command_status.html", cmdStatusData{
 		baseData:   h.base(r, ""),
 		Command:    st,
 		CommandURL: url,
 	})
+}
+
+// commandState returns the recorded status for project/key, or an idle
+// placeholder when no command has run yet.
+func (h *Handlers) commandState(project, key string) CommandState {
+	st, ok := h.runner.Status(project, key)
+	if !ok {
+		return CommandState{Verb: key, State: "idle"}
+	}
+	return st
 }

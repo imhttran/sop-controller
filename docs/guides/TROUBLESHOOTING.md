@@ -43,6 +43,35 @@ Running or stopping the **controller process** is independent of SOP:
 > See [../reference/CLI.md](../reference/CLI.md) and
 > [../reference/CONFIGURATION.md](../reference/CONFIGURATION.md) (`SOP_BIN`).
 
+## Watching a Run: Observe Immediately
+
+Execution, observation, polling, and timeout are **four distinct concepts** —
+see [EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md) for the full
+explanation. The practical rule:
+
+- **Observe immediately.** Use the controller's native activity/status surfaces:
+  the project activity view (`/projects/{project}/activity`) and the **live
+  activity stream** (`/projects/{project}/activity/stream`, SSE). This is the
+  primary way to watch a run; if a stream is unavailable, the bounded-poll
+  window (`/projects/{project}/activity/window`) is the fallback.
+- **No fixed four-minute wait is required.** There is no arbitrary multi-minute
+  pause to sit through before checking on a run. Waiting a fixed interval just
+  delays your reaction to SOP's real state.
+- **Immediate observation of the controller process** is the log itself:
+
+  ```bash
+  make logs                       # tail .run/sop-controller.log
+  tail -f .run/sop-controller.log
+  ```
+
+- **Short bounded polling is an explicit fallback only.** If the live stream is
+  not available, re-read the same status surface on the existing configurable
+  cadence (`SOP_CONTROLLER_POLL`, default `3s`) in a short, bounded loop; do not
+  block on an arbitrary multi-minute sleep.
+- **Timeout is not observation.** `SOP_CONTROLLER_COMMAND_TIMEOUT` (default
+  `15m`) bounds a single command's execution and reports a truthful timeout
+  error; it does not limit how long you watch a run.
+
 ## Observed State -> Disposition -> Action
 
 Find the state in the dashboard, read SOP's recovery disposition, then choose
@@ -83,10 +112,14 @@ report`, `Resume`/`Run`) all drive SOP and none mutate `state.db` directly — s
   `NEEDS_HUMAN` (or a human `BLOCKED`). Most failures are `AUTO_FIX`/`CONTINUE`/
   `RETRY` and are not human gates. See [FAILURE-DISPLAY.md](FAILURE-DISPLAY.md).
 - **After restarting the controller.** Nothing is lost: SOP owns the state, and
-  the controller re-reads it on the next poll. Use **Resume** to continue.
+  the controller re-reads it on the next poll. Observe immediately via the
+  activity stream (falling back to the bounded-poll window); then use **Resume**
+  to continue. There is no fixed wait to sit through first.
 
 ## Related Documentation
 
+- [EXECUTION-AND-OBSERVATION.md](EXECUTION-AND-OBSERVATION.md) — execution vs
+  observation vs polling vs timeout, and the debugging workflow.
 - [../reference/STATUS-AND-RECOVERY.md](../reference/STATUS-AND-RECOVERY.md) —
   vocabulary and recovery actions.
 - [../reference/CLI.md](../reference/CLI.md) — commands, routes, make targets.

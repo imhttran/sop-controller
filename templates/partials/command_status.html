@@ -5,6 +5,9 @@
     <span class="badge {{if $c.Running}}s-running{{else if eq $c.State "error"}}s-failed{{else}}s-completed{{end}}">sop {{$c.Verb}} · {{$c.State}}</span>
     <span class="muted small">started {{since $c.Started}}</span>
   </div>
+  {{if $c.Stage}}
+  <div class="muted small">task {{$c.TaskID}} · stage {{$c.Stage}}{{if $c.Attempt}} · attempt {{$c.Attempt}}{{end}}</div>
+  {{end}}
   {{if $c.Error}}<div class="error-text">{{$c.Error}}</div>{{end}}
   {{if $c.Output}}<pre class="diag">{{$c.Output}}</pre>{{end}}
   {{if $c.Running}}

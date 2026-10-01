@@ -94,7 +94,25 @@ func (s *Store) Summary(ctx context.Context) (ProjectSummary, error) {
 	if p.Name == "" {
 		p.Name = p.ID
 	}
-	return p, rows.Err()
+	if err := rows.Err(); err != nil {
+		return p, err
+	}
+
+	// NeedsAttention folds the same per-task human-decision signal TaskSummary
+	// carries (so it can never drift from the list/detail views) with any
+	// pending changed-executed task SOP reported, so a reconcile-pending task is
+	// counted even before its panel is opened.
+	tasks, err := s.Tasks(ctx)
+	if err != nil {
+		return p, err
+	}
+	for _, t := range tasks {
+		if t.NeedsHuman {
+			p.NeedsAttention++
+		}
+	}
+	p.NeedsAttention += len(s.ChangedTasks().Pending())
+	return p, nil
 }
 
 // Tasks returns every task with its dependencies resolved (FR-2).
@@ -136,8 +154,16 @@ func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
 			}
 		}
 		// Enrich with the latest run's stage, SOP's recovery disposition, and the
-		// run's reported fix-cycle count.
-		t.Stage, t.Recovery, t.FixCycles = s.runMeta(id)
+		// run's reported fix-cycle count, and derive the same human-decision
+		// boundary signal TaskDetail.Approval uses so the list can never disagree
+		// with the task detail view about which tasks need a human decision.
+		ri := s.runInfo(id)
+		t.Stage = ri.Stage
+		if ri.Classification != nil {
+			t.Recovery = ri.Classification.Disposition
+		}
+		t.FixCycles = ri.FixCycles
+		t.NeedsHuman, t.ApprovalKind = humanBoundary(t.Status, ri)
 	}
 	out := make([]TaskSummary, 0, len(order))
 	for _, id := range order {

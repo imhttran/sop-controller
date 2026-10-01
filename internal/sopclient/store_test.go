@@ -171,6 +171,70 @@ func TestFixCyclesAndRetryable(t *testing.T) {
 	}
 }
 
+// TestTasksProjectHumanDecisionBoundary verifies the list projection
+// (TaskSummary.NeedsHuman/ApprovalKind) agrees with the same humanBoundary
+// evidence TaskDetail.Approval uses, for each SOP-reported signal: a
+// dependency-only BLOCKED task is never flagged, but a human-classified
+// BLOCKED task, a WAITING_FOR_HUMAN run stage, and a NEEDS_HUMAN disposition
+// all are.
+func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
+	root := newProject(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	seed(t, root,
+		// BLOCKED only by an incomplete dependency: not a human boundary.
+		`INSERT INTO tasks VALUES ('dep','Dep','o','a','BLOCKED','waiting on upstream',0,3,'`+now+`','`+now+`')`,
+		// BLOCKED with a human-classified failure.
+		`INSERT INTO tasks VALUES ('blocked-human','BH','o','a','BLOCKED','needs a call',1,3,'`+now+`','`+now+`')`,
+		// Run parked at WAITING_FOR_HUMAN, task status not itself BLOCKED.
+		`INSERT INTO tasks VALUES ('waiting','W','o','a','IMPLEMENTING',NULL,1,3,'`+now+`','`+now+`')`,
+		// NEEDS_HUMAN disposition reported independent of status/stage.
+		`INSERT INTO tasks VALUES ('needs-human','NH','o','a','REVIEW',NULL,1,3,'`+now+`','`+now+`')`,
+	)
+	writeArtifact(t, root, "blocked-human", "classification.json",
+		`{"kind":"AMBIGUOUS_CONTRACT","disposition":"CONTINUE","confidence":"HIGH","reason":"ambiguous"}`)
+	writeArtifact(t, root, "waiting", "state.json", `{"id":"waiting","stage":"WAITING_FOR_HUMAN"}`)
+	writeArtifact(t, root, "needs-human", "classification.json",
+		`{"kind":"TEST_FAILURE","disposition":"NEEDS_HUMAN","confidence":"HIGH","reason":"ask a human"}`)
+
+	st, err := OpenStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	tasks, err := st.Tasks(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]TaskSummary{}
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+
+	if d := byID["dep"]; d.NeedsHuman {
+		t.Fatalf("dep: NeedsHuman = true, want false (dependency-only BLOCKED): %+v", d)
+	}
+	if b := byID["blocked-human"]; !b.NeedsHuman || b.ApprovalKind != ApprovalKindBlocked {
+		t.Fatalf("blocked-human: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", b.NeedsHuman, b.ApprovalKind, ApprovalKindBlocked, b)
+	}
+	if w := byID["waiting"]; !w.NeedsHuman || w.ApprovalKind != ApprovalKindWaitingForHuman {
+		t.Fatalf("waiting: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", w.NeedsHuman, w.ApprovalKind, ApprovalKindWaitingForHuman, w)
+	}
+	if n := byID["needs-human"]; !n.NeedsHuman || n.ApprovalKind != ApprovalKindNeedsHuman {
+		t.Fatalf("needs-human: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", n.NeedsHuman, n.ApprovalKind, ApprovalKindNeedsHuman, n)
+	}
+
+	// The same boundary must also be reported on TaskDetail.Approval.Present
+	// for the human-classified BLOCKED task, so the list and detail view agree.
+	detail, err := st.Task(context.Background(), "blocked-human")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !detail.Approval.Present {
+		t.Fatalf("TaskDetail.Approval.Present = false, want true for blocked-human")
+	}
+}
+
 func TestTaskDetailReadsArtifacts(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)
