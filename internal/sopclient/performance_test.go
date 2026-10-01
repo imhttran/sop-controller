@@ -155,7 +155,7 @@ func TestTaskDetailExposesPerformance(t *testing.T) {
 	writeArtifact(t, root, "t1", "metrics.json", taskMetricsFixture)
 	st := openPerfStore(t, root)
 
-	d, err := st.Task(context.Background(), "t1")
+	d, err := st.Task(context.Background(), "t1", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}

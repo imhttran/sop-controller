@@ -12,10 +12,11 @@ package sopclient
 // BLOCKED status) is retired. When SOP reports no applicable gate for a task,
 // this model reports none and no approval may be taken.
 //
-// The listing is SOP's `sop approvals --json` surface. SOP persists it as the
-// project artifact <root>/.agent-sdlc/approvals.json (the same present-or-absent
-// artifact contract as reconcile.json / plan.meta.json), and the controller
-// reads it back verbatim. Every decoded field name matches SOP's schema exactly
+// The listing is SOP's `sop approvals --json` surface. SOP emits it on stdout;
+// it does not persist an approval artifact. The controller asks SOP for the
+// listing (Client.Approvals) and reads it back verbatim; Store.Approvals retains
+// an optional present-or-absent artifact read only as a cached source, never as
+// the authority. Every decoded field name matches SOP's schema exactly
 // (task_id, kind, target, reason, evidence, stage, disposition, status,
 // requested_at, task_status); nothing is renamed, inferred, or reconstructed.
 //
@@ -35,12 +36,12 @@ import (
 	"strings"
 )
 
-// approvalsArtifact is the SOP-owned approval listing artifact, read from
-// <root>/.agent-sdlc/approvals.json, the file SOP's `approvals --json` verb
-// writes, exactly like reconcile.json and plan.meta.json. It is optional and
-// present-or-absent: SOP writes it when it has computed the applicable gate
-// listing, and its absence is normal and never an error. The controller reads it
-// verbatim and NEVER reconstructs a gate list of its own to fill the gap.
+// approvalsArtifact is an OPTIONAL, present-or-absent cached approval listing at
+// <root>/.agent-sdlc/approvals.json. SOP does NOT write it today: `sop approvals
+// --json` prints the listing on stdout, which is why the authoritative read
+// (Client.Approvals) falls back to the verb itself. When a caller or a future SOP
+// does persist one, it is read verbatim; the controller NEVER reconstructs a gate
+// list of its own to fill the gap.
 const approvalsArtifact = "approvals.json"
 
 // Approval status values SOP uses to mark a gate entry that is no longer
@@ -197,12 +198,14 @@ func closedStatus(v string) bool {
 	}
 }
 
-// Approvals reads SOP's authoritative approval listing for this project. It
-// reads SOP's own approvals artifact read-only, through the same present-or-
-// absent artifact contract as reconcile.json and plan.meta.json; the controller
-// never opens SOP state storage for write and never reconstructs a gate list.
-// When SOP reports no listing the result has Reported=false and no entries, so a
-// caller shows an explicit absence instead of an empty success.
+// Approvals reads SOP's authoritative approval listing for this project. SOP
+// emits the listing on stdout (`sop approvals --json`); the controller reads it
+// through the CLI boundary and never opens SOP state storage for write and never
+// reconstructs a gate list. An optional persisted artifact, if one exists at
+// <root>/.agent-sdlc/approvals.json, is read first as a cache; SOP does not write
+// it today, so a real project always takes the live read. When SOP reports no
+// listing the result has Reported=false and no entries, so a caller shows an
+// explicit absence instead of an empty success.
 func (s *Store) Approvals() ApprovalsListing {
 	raw, err := os.ReadFile(filepath.Join(s.root, ".agent-sdlc", approvalsArtifact))
 	if err != nil {

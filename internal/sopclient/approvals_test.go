@@ -149,7 +149,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "blocked")
+	d, err := st.Task(context.Background(), "blocked", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 		t.Fatal("NeedsHuman() = true for a task with no listing entry")
 	}
 
-	done, err := st.Task(context.Background(), "done-gate")
+	done, err := st.Task(context.Background(), "done-gate", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 		t.Fatalf("Approval.Present = true for a completed listing entry: %+v", done.Approval)
 	}
 
-	tasks, err := st.Tasks(context.Background())
+	tasks, err := st.Tasks(context.Background(), st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestApprovalNeverFromAttemptsOrInactivity(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "retried")
+	d, err := st.Task(context.Background(), "retried", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestApprovalsListAndDetailAgree(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background())
+	tasks, err := st.Tasks(context.Background(), st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestApprovalsListAndDetailAgree(t *testing.T) {
 		t.Fatalf("summary = %+v, want NeedsHuman/AMBIGUOUS_CONTRACT", summary)
 	}
 
-	detail, err := st.Task(context.Background(), "t-open")
+	detail, err := st.Task(context.Background(), "t-open", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}

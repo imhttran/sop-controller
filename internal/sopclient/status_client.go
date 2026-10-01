@@ -50,7 +50,11 @@ func (c *Client) Report(ctx context.Context, projectID, taskID string) (ReportRe
 	if !ok {
 		return ReportRef{}, ErrProjectNotFound
 	}
-	if _, err := st.Task(ctx, taskID); err != nil {
+	// A task's existence check does not depend on the approval listing, but the
+	// Store now requires the caller to supply SOP's authoritative listing; pass the
+	// one SOP reports (an unreported listing here still validates existence).
+	approvals, _ := c.Approvals(ctx, projectID)
+	if _, err := st.Task(ctx, taskID, approvals); err != nil {
 		return ReportRef{}, err
 	}
 	return st.ReportRef(taskID), nil

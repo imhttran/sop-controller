@@ -64,7 +64,11 @@ func (c *Client) Projects(ctx context.Context) ([]ProjectSummary, error) {
 	out := make([]ProjectSummary, 0, len(c.order))
 	for _, id := range c.order {
 		changed, _ := c.ChangedTasks(ctx, id)
-		s, err := c.stores[id].Summary(ctx, changed)
+		// SOP's authoritative approval listing drives every gate projection; a
+		// failure surfaces as an explicit absence (no gate), never a fabricated
+		// one. The controller still reads only what SOP reports.
+		approvals, _ := c.Approvals(ctx, id)
+		s, err := c.stores[id].Summary(ctx, changed, approvals)
 		if err != nil {
 			return nil, err
 		}
@@ -79,11 +83,14 @@ func (c *Client) Project(ctx context.Context, id string) (ProjectDetail, error) 
 		return ProjectDetail{}, ErrProjectNotFound
 	}
 	changed, _ := c.ChangedTasks(ctx, id)
-	sum, err := st.Summary(ctx, changed)
+	// SOP's authoritative approval listing (sop approvals --json). A failure is an
+	// explicit absence, never a controller-side inference.
+	approvals, _ := c.Approvals(ctx, id)
+	sum, err := st.Summary(ctx, changed, approvals)
 	if err != nil {
 		return ProjectDetail{}, err
 	}
-	tasks, err := st.Tasks(ctx)
+	tasks, err := st.Tasks(ctx, approvals)
 	if err != nil {
 		return ProjectDetail{}, err
 	}
@@ -96,7 +103,9 @@ func (c *Client) Task(ctx context.Context, projectID, taskID string) (TaskDetail
 	if !ok {
 		return TaskDetail{}, ErrProjectNotFound
 	}
-	return st.Task(ctx, taskID)
+	// SOP's authoritative approval listing (sop approvals --json).
+	approvals, _ := c.Approvals(ctx, projectID)
+	return st.Task(ctx, taskID, approvals)
 }
 
 // Activity returns recent structured SOP activity across a project. It reads
@@ -193,10 +202,10 @@ var ErrApprovalsUnavailable = errors.New("SOP did not report an approval listing
 // BLOCKED status, prose, attempt counts, or inactivity, and never parses
 // `sop approval`'s human text.
 //
-// SOP's listing is read through the same two present-or-absent sources as the
-// refresh path: the controller first reads SOP's persisted listing artifact
-// (`sop approvals --json` writes .agent-sdlc/approvals.json), and when SOP has
-// not persisted one it invokes the verb itself and decodes its stdout.
+// SOP's listing is read from the verb itself: the controller invokes `sop
+// approvals --json` and decodes its stdout. An optional persisted listing
+// artifact is consulted first as a cache; SOP does not write one today, so a real
+// project always takes the live read.
 //
 // Error contract (this is the fix for the silent-empty-listing defect):
 //   - a persisted, well-formed listing is returned verbatim with a nil error;

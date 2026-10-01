@@ -69,7 +69,12 @@ func (s *Store) ProjectID() string {
 // rendered as zero pending. The changed set itself is read from SOP's listing by
 // the caller (Client.ChangedTasks); the Store never reads the retired
 // reconcile.json artifact.
-func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks) (ProjectSummary, error) {
+//
+// The SOP-reported approval listing (approvals) is likewise supplied by the
+// caller, which obtained it from SOP's authoritative `sop approvals --json`
+// surface (Client.Approvals). The Store never infers a gate from task status,
+// run classification, or a controller-side artifact SOP does not write.
+func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks, approvals ApprovalsListing) (ProjectSummary, error) {
 	name, branch := s.projectMeta()
 	p := ProjectSummary{ID: s.ProjectID(), Name: name, Branch: branch}
 
@@ -107,7 +112,7 @@ func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks) (Project
 		return p, err
 	}
 
-	tasks, err := s.Tasks(ctx)
+	tasks, err := s.Tasks(ctx, approvals)
 	if err != nil {
 		return p, err
 	}
@@ -123,15 +128,19 @@ func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks) (Project
 }
 
 // Tasks returns every task with its dependencies resolved (FR-2).
-func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
+//
+// approvals is SOP's authoritative approval listing, supplied by the caller
+// (Client, which fetched it via `sop approvals --json`); it is shared with every
+// row so the list projection is never reconstructed per task and can never
+// disagree with TaskDetail.Approval. The Store does not read an approval
+// artifact SOP never writes.
+func (s *Store) Tasks(ctx context.Context, approvals ApprovalsListing) ([]TaskSummary, error) {
 	deps, err := s.dependencyMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Read SOP's authoritative approval listing ONCE per call and share it with
-	// every row, so the list projection is never reconstructed per task and can
-	// never disagree with TaskDetail.Approval.
-	listing := s.Approvals()
+	// Share SOP's authoritative approval listing with every row.
+	listing := approvals
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, title, status, COALESCE(blocked_reason, ''), attempt, max_attempts, updated_at
 		FROM tasks ORDER BY id`)
@@ -187,7 +196,11 @@ func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
 // Task returns one task with attempts, validation, review, and handoff (FR-3),
 // plus the CTRL003 structured status fields (run status, aggregate validation/
 // review/JEV status, and report reference).
-func (s *Store) Task(ctx context.Context, id string) (TaskDetail, error) {
+//
+// approvals is SOP's authoritative approval listing, supplied by the caller
+// (Client, from `sop approvals --json`); it is the same listing Store.Tasks
+// receives, so the detail and list views cannot disagree.
+func (s *Store) Task(ctx context.Context, id string, approvals ApprovalsListing) (TaskDetail, error) {
 	var d TaskDetail
 	var updated string
 	err := s.db.QueryRowContext(ctx, `
@@ -257,7 +270,7 @@ func (s *Store) Task(ctx context.Context, id string) (TaskDetail, error) {
 	// CTRL011 / C2-001: SOP-reported approval gate, projected from SOP's
 	// authoritative approval listing - the same listing Store.Tasks reads - so the
 	// detail and list views can never disagree. The controller never infers a gate.
-	listing := s.Approvals()
+	listing := approvals
 	d.Approval = s.approval(d, listing)
 	// Mirror the list projection onto the embedded summary so TaskDetail carries
 	// the same NeedsHuman/ApprovalKind signal as TaskSummary.

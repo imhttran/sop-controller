@@ -96,6 +96,20 @@ func listing() {
 	os.Stdout.Write(body)
 }
 
+// approvals responds to the pure-read authoritative approval listing the
+// controller issues on every project/task render (sop approvals --json). Like
+// the changed-task listing it is NOT a scripted lifecycle mutation: it emits a
+// well-formed (possibly empty) SOP approval listing and never consumes a
+// numbered step or advances the call counter, so the controller's C2-001 read
+// path is exercised without disturbing the asserted lifecycle ordering.
+func approvals() {
+	body := []byte("{\"version\":1,\"approvals\":[]}")
+	if raw, err := os.ReadFile(filepath.Join(".agent-sdlc", "approvals_listing.json")); err == nil {
+		body = raw
+	}
+	os.Stdout.Write(body)
+}
+
 // withLock serializes the counter read-modify-write across every concurrent
 // invocation (a background lifecycle command plus one or more polled renders
 // can otherwise interleave). It uses an atomic mkdir as the lock and always
@@ -128,6 +142,13 @@ func main() {
 	}
 	if isListing {
 		listing()
+		return
+	}
+	// ` + "`sop approvals --json`" + ` (C2-001) is likewise a pure read, not a
+	// scripted lifecycle mutation: answer it from a persisted listing file (empty
+	// when none) and do not advance the counter.
+	if len(os.Args) > 1 && os.Args[1] == "approvals" {
+		approvals()
 		return
 	}
 

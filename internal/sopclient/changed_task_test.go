@@ -248,7 +248,7 @@ func TestSummaryCountsPendingChangedTasks(t *testing.T) {
 	reported := ChangedTasks{Reported: true, Source: listingSource, Tasks: []ChangedExecutedTask{
 		{TaskID: "t2"}, {TaskID: "t3", Approved: true},
 	}}
-	sum, err := st.Summary(ctx, reported)
+	sum, err := st.Summary(ctx, reported, st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestSummaryCountsPendingChangedTasks(t *testing.T) {
 		t.Fatalf("NeedsAttention = %d, want 1 (one pending changed task)", sum.NeedsAttention)
 	}
 
-	unreported, err := st.Summary(ctx, ChangedTasks{})
+	unreported, err := st.Summary(ctx, ChangedTasks{}, st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}

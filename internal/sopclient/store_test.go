@@ -100,7 +100,7 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 	ctx := context.Background()
 	// Summary folds in the SOP-reported changed set the caller supplies; with no
 	// reported set (zero value) no changed-task count is added.
-	sum, err := st.Summary(ctx, ChangedTasks{})
+	sum, err := st.Summary(ctx, ChangedTasks{}, st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 		t.Fatalf("percent = %d, want 33", sum.PercentComplete())
 	}
 
-	tasks, err := st.Tasks(ctx)
+	tasks, err := st.Tasks(ctx, st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestFixCyclesAndRetryable(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background())
+	tasks, err := st.Tasks(context.Background(), st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background())
+	tasks, err := st.Tasks(context.Background(), st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 	}
 
 	// The detail view must agree with the list over the SAME listing.
-	detail, err := st.Task(context.Background(), "blocked-human")
+	detail, err := st.Task(context.Background(), "blocked-human", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestTaskDetailReadsArtifacts(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "t2")
+	d, err := st.Task(context.Background(), "t2", st.Approvals())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +304,7 @@ func TestTaskNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	if _, err := st.Task(context.Background(), "missing"); err != ErrTaskNotFound {
+	if _, err := st.Task(context.Background(), "missing", st.Approvals()); err != ErrTaskNotFound {
 		t.Fatalf("err = %v, want ErrTaskNotFound", err)
 	}
 }
