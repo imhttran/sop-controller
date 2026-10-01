@@ -101,6 +101,8 @@ func TestActivityParsing(t *testing.T) {
 
 // SOP's classification is read from report.json when present, and from the
 // dedicated classification.json when a run stopped before writing a report.
+// C2-001: a NEEDS_HUMAN classification or a WAITING_FOR_HUMAN stage no longer
+// produces an approval gate on its own; only SOP's approval listing does.
 func TestClassificationSources(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -142,8 +144,14 @@ func TestClassificationSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !r2.NeedsHuman() || r2.Recovering() != "" {
-		t.Fatalf("r2 needsHuman=%v recovering=%q, want true/\"\"", r2.NeedsHuman(), r2.Recovering())
+	// The NEEDS_HUMAN run classification is still surfaced as a recovery
+	// disposition, but C2-001 makes the approval listing the ONLY source of a
+	// gate: without a listing entry the task reports no approval.
+	if r2.Recovering() != "" {
+		t.Fatalf("r2 recovering=%q, want \"\"", r2.Recovering())
+	}
+	if r2.NeedsHuman() {
+		t.Fatalf("r2 needsHuman=true, want false: a NEEDS_HUMAN classification alone must not produce a gate")
 	}
 	if r2.Run.Stage != StageWaitingForHuman {
 		t.Fatalf("r2 stage = %q, want WAITING_FOR_HUMAN", r2.Run.Stage)

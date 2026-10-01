@@ -119,6 +119,11 @@ type ProjectDetail struct {
 	// Plan is the active plan and its final plan gate as SOP persisted them
 	// (CTRL003). Recorded is false when SOP persisted no plan metadata.
 	Plan PlanGate
+	// PlanPerformance is SOP's plan-level performance aggregate for the active
+	// plan, read from SOP's recorded plan identity (plan.meta.json) and its run
+	// metrics artifact. It is diagnostic metadata only and Present is false when
+	// SOP persisted (or this project has) no aggregate.
+	PlanPerformance PlanPerformance
 }
 
 // ActiveTask returns the id of the running task the controller should surface
@@ -167,13 +172,15 @@ type TaskSummary struct {
 	// FixCycles is the latest run's reported auto-fix cycle count, or 0 when
 	// the task has no run.
 	FixCycles int
-	// NeedsHuman reports whether SOP reports a human decision boundary for this
-	// task, derived by the same humanBoundary evidence TaskDetail.Approval uses
-	// (NEEDS_HUMAN disposition, WAITING_FOR_HUMAN stage, or BLOCKED with a human
-	// classification), so the list and detail view can never disagree.
+	// NeedsHuman reports whether SOP reports an applicable human approval gate
+	// for this task, projected from the SAME authoritative approval listing
+	// (sop approvals --json) that TaskDetail.Approval uses, so the list and
+	// detail view can never disagree. It is true only when SOP's listing has an
+	// applicable entry for the task; BLOCKED status alone, run stage, model/
+	// recovery prose, attempt counts, and inactivity never set it.
 	NeedsHuman bool
-	// ApprovalKind is the SOP-reported boundary source (one of the
-	// ApprovalKind* constants) when NeedsHuman is true, or "" otherwise.
+	// ApprovalKind is SOP's reported gate kind (kind) when NeedsHuman is true, or
+	// "" otherwise. It is carried verbatim from the listing entry.
 	ApprovalKind string
 }
 
@@ -244,20 +251,33 @@ type TaskDetail struct {
 	// completion: completion still comes only from SOP's task status/run decision.
 	Checkpoint CheckpointProgress
 
-	// --- CTRL011 human approval boundary (render-ready, read-only) ---
+	// --- CTRL011 / C2-001 human approval boundary (render-ready, read-only) ---
 
-	// Approval is SOP's human approval boundary for this task, when SOP reports
-	// one. Present is false when SOP reports none; an approval action may only be
-	// offered while Present is true. It is derived solely from SOP-persisted
-	// state and is never inferred from retries or activity.
+	// Approval is SOP's human approval gate for this task, projected from SOP's
+	// authoritative approval listing (sop approvals --json). Present is false when
+	// the listing reports no applicable gate for the task; an approval action may
+	// only be offered while Present is true. It is never inferred from run
+	// classification, run stage, BLOCKED status, prose, attempt counts, or
+	// inactivity.
 	Approval Approval
+
+	// --- performance (diagnostic, read-only, SOP-measured) ---
+
+	// Performance is the latest performance record SOP persisted for this task
+	// (.agent-sdlc/runs/<task>/metrics.json, or report.json's performance field),
+	// projected verbatim. It is diagnostic metadata only: it never determines task
+	// status, selection, retry, recovery, approval, or any lifecycle decision.
+	// Present is false when SOP persisted no record, in which case a renderer
+	// shows an explicit absence rather than a 0s measurement.
+	Performance Performance
 }
 
-// NeedsHuman reports whether SOP reports a human boundary for this task: a
-// terminal BLOCKED status, or a NEEDS_HUMAN failure disposition. It is the only
-// state the UI treats as requiring a human decision.
+// NeedsHuman reports whether SOP reports an applicable human approval gate for
+// this task, projected from the authoritative approval listing. It is true only
+// when the listing has an applicable entry; it is NOT derived from BLOCKED
+// status or a run classification, which no longer produce a gate on their own.
 func (t TaskDetail) NeedsHuman() bool {
-	return t.Status == StatusBlocked || t.Run.Classification.HumanRequired()
+	return t.Approval.Present
 }
 
 // Recovering returns the disposition SOP applied when it is recovering from a

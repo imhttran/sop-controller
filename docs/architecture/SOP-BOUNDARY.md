@@ -52,7 +52,9 @@ These rules are architecture-level and MUST hold at all times.
    semantics, statuses, or stages.
 5. **Approval stays with SOP.** Human-approval boundaries MUST remain controlled
    by SOP. The controller never decides that approval is required and never
-   fabricates an approval.
+   fabricates an approval; it delegates the approve/decline decision to SOP's
+   own operation (`sop approve` / `sop decline`), which validates the gate at
+   command time, and reports SOP's answer verbatim (including a rejection).
 6. **No scheduler decisions.** The controller MUST NOT choose which task runs
    next. Task selection lives in SOP (`sop run` / `sop resume`); the boundary
    exposes no selection operation.
@@ -68,13 +70,32 @@ its result.
 
 | Kind | Examples |
 | --- | --- |
-| Reads | plan source, tasks, task detail, activity, project progress |
-| Commands | `sop run`, `sop resume`, `sop validate`, `sop review`, `sop report`, `sop retry`, `sop reconcile` |
+| Reads | plan source, tasks, task detail, activity, project progress, approvals (`sop approvals --json`), performance (`.agent-sdlc/runs/<id>/metrics.json`) |
+| Commands | `sop run`, `sop resume`, `sop validate`, `sop review`, `sop report`, `sop retry`, `sop reconcile`, `sop approve`, `sop decline` |
 
-Some conceptual operations are **recorded gaps** because SOP exposes no
-application operation for them (for example `CancelRun` and `ApproveTask`).
-They are kept in the contract and return `ErrOperationUnsupported` rather than
-being simulated. See
+Human approval (C2-002) is now a **supported** command operation: the controller
+delegates the decision to `sop approve <task-id> [--by NAME] [--note TEXT]` /
+`sop decline <task-id> [--by NAME] [--note TEXT]` through the argv-slice command
+boundary. No `--run` is passed, so recording a decision is separate from
+execution. SOP validates the gate at command time; a rejected (stale/
+not-applicable) decision is surfaced as an actionable conflict, never a `500` or
+a fabricated success. The controller writes no approval state of its own, marks
+no task complete on approve, and manufactures no failure on decline.
+
+**Performance** is a read-only, SOP-measured projection. The controller reads
+the per-task `.agent-sdlc/runs/<task>/metrics.json` (with `report.json`'s
+`performance` field as a fallback) and the plan-level
+`.agent-sdlc/runs/<plan-id>/metrics.json` aggregate, keyed by SOP's recorded
+`plan.meta.json` `plan_id`. SOP owns timing (`internal/perf`); the controller
+starts no timer, derives no stage duration from its own clock, an HTTP request,
+a polling interval, or a status transition, and stores no performance state.
+Performance is diagnostic metadata only: it never determines task status,
+selection, retry, recovery, approval, or routing.
+
+Some conceptual operations remain **recorded gaps** because SOP exposes no
+application operation for them (for example `CancelRun`; per-task
+`AcceptChangedTask` until SOP exposes it). They are kept in the contract and
+return `ErrOperationUnsupported` rather than being simulated. See
 [../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md) for the full
 table, the gap rationale, and the test matrix.
 

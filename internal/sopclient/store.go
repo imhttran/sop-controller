@@ -60,7 +60,16 @@ func (s *Store) ProjectID() string {
 }
 
 // Summary builds the FR-1 project overview from task statuses.
-func (s *Store) Summary(ctx context.Context) (ProjectSummary, error) {
+//
+// The NeedsAttention count folds the same per-task human-decision signal
+// TaskSummary carries (so it can never drift from the list/detail views) with
+// any pending changed-executed task SOP reports. When the caller supplies the
+// SOP-reported changed set (changedTasks), those pending tasks are counted; when
+// SOP reports no set, no changed-task count is added and the absence is NOT
+// rendered as zero pending. The changed set itself is read from SOP's listing by
+// the caller (Client.ChangedTasks); the Store never reads the retired
+// reconcile.json artifact.
+func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks) (ProjectSummary, error) {
 	name, branch := s.projectMeta()
 	p := ProjectSummary{ID: s.ProjectID(), Name: name, Branch: branch}
 
@@ -98,10 +107,6 @@ func (s *Store) Summary(ctx context.Context) (ProjectSummary, error) {
 		return p, err
 	}
 
-	// NeedsAttention folds the same per-task human-decision signal TaskSummary
-	// carries (so it can never drift from the list/detail views) with any
-	// pending changed-executed task SOP reported, so a reconcile-pending task is
-	// counted even before its panel is opened.
 	tasks, err := s.Tasks(ctx)
 	if err != nil {
 		return p, err
@@ -111,7 +116,9 @@ func (s *Store) Summary(ctx context.Context) (ProjectSummary, error) {
 			p.NeedsAttention++
 		}
 	}
-	p.NeedsAttention += len(s.ChangedTasks().Pending())
+	if changedTasks.Reported {
+		p.NeedsAttention += len(changedTasks.Pending())
+	}
 	return p, nil
 }
 
@@ -121,6 +128,10 @@ func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Read SOP's authoritative approval listing ONCE per call and share it with
+	// every row, so the list projection is never reconstructed per task and can
+	// never disagree with TaskDetail.Approval.
+	listing := s.Approvals()
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, title, status, COALESCE(blocked_reason, ''), attempt, max_attempts, updated_at
 		FROM tasks ORDER BY id`)
@@ -153,17 +164,18 @@ func (s *Store) Tasks(ctx context.Context) ([]TaskSummary, error) {
 				t.BlockedBy = append(t.BlockedBy, dep)
 			}
 		}
-		// Enrich with the latest run's stage, SOP's recovery disposition, and the
-		// run's reported fix-cycle count, and derive the same human-decision
-		// boundary signal TaskDetail.Approval uses so the list can never disagree
-		// with the task detail view about which tasks need a human decision.
+		// Enrich with the latest run's stage and SOP's recovery disposition, then
+		// derive the human-decision signal from SOP's approval listing - the SAME
+		// listing entry TaskDetail.Approval uses - so the list can never disagree
+		// with the task detail view about which tasks need a human decision, and no
+		// controller-side inference over classification/stage/BLOCKED is performed.
 		ri := s.runInfo(id)
 		t.Stage = ri.Stage
 		if ri.Classification != nil {
 			t.Recovery = ri.Classification.Disposition
 		}
 		t.FixCycles = ri.FixCycles
-		t.NeedsHuman, t.ApprovalKind = humanBoundary(t.Status, ri)
+		t.NeedsHuman, t.ApprovalKind = taskNeedsHuman(listing, id)
 	}
 	out := make([]TaskSummary, 0, len(order))
 	for _, id := range order {
@@ -242,9 +254,19 @@ func (s *Store) Task(ctx context.Context, id string) (TaskDetail, error) {
 	// time and size so a retracted/reset checkpoint is not replayed forever.
 	d.Checkpoint = s.mergeCheckpoint(id, s.Checkpoint(id))
 
-	// CTRL011: SOP-reported human approval boundary. Present is true only when
-	// SOP persisted a human boundary; the controller never infers one.
-	d.Approval = s.approval(d)
+	// CTRL011 / C2-001: SOP-reported approval gate, projected from SOP's
+	// authoritative approval listing - the same listing Store.Tasks reads - so the
+	// detail and list views can never disagree. The controller never infers a gate.
+	listing := s.Approvals()
+	d.Approval = s.approval(d, listing)
+	// Mirror the list projection onto the embedded summary so TaskDetail carries
+	// the same NeedsHuman/ApprovalKind signal as TaskSummary.
+	d.TaskSummary.NeedsHuman, d.TaskSummary.ApprovalKind = taskNeedsHuman(listing, id)
+
+	// Performance is SOP's own persisted measurement for the latest run, read
+	// read-only. It is diagnostic only: it never feeds a lifecycle decision, and a
+	// task with no performance artifact simply carries an absent record.
+	d.Performance = s.Performance(id)
 	return d, nil
 }
 

@@ -2,16 +2,20 @@
        actual approval boundary for this task (TaskDetail.Approval.Present). The
        controller never decides that approval is required and never manufactures
        an approval: it shows SOP's reported gate and delegates the approve/decline
-       ACTION to SOP's own application boundary. When SOP reports no boundary the
-       panel shows an explicit absence and offers no control.
+       ACTION to SOP's own application operation (`sop approve` / `sop decline`,
+       C2-002). When SOP reports no boundary the panel shows an explicit absence
+       and offers no control.
 
        Approve and decline are independent SOP operations, so each control is
        gated on its OWN applicability (ApproveApplicable / DeclineApplicable):
        an action SOP exposes is offered even if its counterpart is unsupported,
-       and an action SOP does not expose (the recorded CTRL011 gap) is shown
-       read-only with its reason rather than as a control whose only outcome is
-       an unsupported error. Declining/withholding writes nothing locally; the
-       rendered state after an action re-reads SOP. */ -}}
+       and an action SOP does not expose is shown read-only with its reason rather
+       than as a control whose only outcome is an unsupported error. Declining
+       writes nothing locally and never manufactures a failure; the rendered
+       state after an action re-reads SOP. SOP validates the gate at command time,
+       so a stale/not-applicable decision is rejected by SOP and reported as an
+       actionable conflict rather than a fabricated success. The actor/note fields
+       are optional and forwarded as `--by` / `--note`. */ -}}
 {{$a := .Approval}}
 {{if $a.Present}}
 <dl class="facts approval-facts">
@@ -47,23 +51,27 @@
 <div class="actions">
   {{if $a.ApproveApplicable}}
   <form
-    class="inline"
+    class="inline approval-form"
     hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/approve"
     hx-target="#cmd"
     hx-swap="innerHTML"
   >
     <input type="hidden" name="csrf" value="{{.CSRF}}" />
+    <input class="input" type="text" name="by" placeholder="by (actor, optional)" autocomplete="off" />
+    <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
     <button class="btn" hx-disabled-elt="this">Approve (SOP gate)</button>
   </form>
   {{end}}
   {{if $a.DeclineApplicable}}
   <form
-    class="inline"
+    class="inline approval-form"
     hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/decline"
     hx-target="#cmd"
     hx-swap="innerHTML"
   >
     <input type="hidden" name="csrf" value="{{.CSRF}}" />
+    <input class="input" type="text" name="by" placeholder="by (actor, optional)" autocomplete="off" />
+    <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
     <button class="btn" hx-disabled-elt="this">Decline</button>
   </form>
   {{end}}
@@ -71,8 +79,10 @@
 <div id="cmd"></div>
 <p class="muted small">
   The controller does not approve work itself: the action is delegated to SOP's
-  application boundary, which records the decision with SOP provenance. Declining
-  writes nothing and leaves the task in SOP's reported state.
+  application operation, which validates the gate at command time and records the
+  decision with SOP provenance. No <code>--run</code> is passed, so recording a
+  decision does not start execution. Declining writes nothing locally and
+  manufactures no failure; a rejected (stale) decision is reported as a conflict.
 </p>
 {{else}}
 <p class="muted">

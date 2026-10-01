@@ -17,6 +17,7 @@ type Handlers struct {
 	sop             *sopclient.Client
 	views           *Views
 	poll            time.Duration
+	attention       time.Duration
 	runner          *CommandRunner
 	discoveryReport config.DiscoveryReport
 }
@@ -47,6 +48,11 @@ type projectPage struct {
 	// reported awaiting reconcile, verbatim. Populated only when
 	// ReconcileListChanged is true; zero value otherwise.
 	ChangedTasks sopclient.ChangedTasks
+	// ChangedTasksError, when non-empty, records that SOP's authoritative
+	// changed-task listing could not be read (unsupported verb, non-zero exit, or
+	// unparsable output). The panel then shows an explicit failure/absence state
+	// rather than an empty success; the page itself still renders.
+	ChangedTasksError string
 	// ReconcileListChanged/ReconcileAcceptChanged mirror
 	// sopclient.ReconcileOperations(): whether SOP's changed-task read and
 	// per-task accept-changed operation are each available. The changed-task
@@ -54,6 +60,10 @@ type projectPage struct {
 	// as if they could act when they cannot.
 	ReconcileListChanged   bool
 	ReconcileAcceptChanged bool
+	// Decisions is the C2-006 human-decision surface projection, built from the
+	// same SOP reads this page already performs (no duplicate SOP call). It is
+	// rendered inline by the decisions partial.
+	Decisions decisionsData
 }
 
 type taskPage struct {
@@ -92,6 +102,17 @@ type cmdStatusData struct {
 
 func (h *Handlers) base(r *http.Request, nav string) baseData {
 	return baseData{CSRF: csrfToken(r), Poll: h.poll, Nav: nav}
+}
+
+// baseForProject builds the base template data for a project-scoped fragment.
+// It carries the same CSRF token and configured poll cadence as base, so a
+// fragment rendered from the live-progress path (the attention projection) can
+// share the decisions partial with the full project page. nav is "projects" and
+// the request may be nil for an internally-derived projection, in which case no
+// per-request token is available and the fragment carries an empty CSRF value
+// (it renders state only; a mutation form re-reads the real token on the page).
+func (h *Handlers) baseForProject(project string) baseData {
+	return baseData{CSRF: "", Poll: h.poll, Nav: "projects"}
 }
 
 func (h *Handlers) render(w http.ResponseWriter, status int, name string, data any) {
@@ -151,21 +172,23 @@ func (h *Handlers) project(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, r, err)
 		return
 	}
+	// The changed-task listing is a pure read of SOP's authoritative changed set,
+	// shared by the changed-task panel and the decisions panel so the two cannot
+	// disagree. A failure (unsupported verb, non-zero exit, unparsable output) is
+	// surfaced as an explicit error state rather than an empty success; the
+	// failure is not allowed to break the rest of the project page.
+	changed, changedErr := h.readChangedTasks(r.Context(), detail)
+	base := h.base(r, "projects")
 	listChanged, acceptChanged := sopclient.ReconcileOperations()
-	var changed sopclient.ChangedTasks
-	if listChanged {
-		if changed, err = h.sop.ChangedTasks(r.Context(), detail.Summary.ID); err != nil {
-			h.renderError(w, r, err)
-			return
-		}
-	}
 	h.render(w, http.StatusOK, "project.html", projectPage{
-		baseData:               h.base(r, "projects"),
+		baseData:               base,
 		Project:                detail,
 		CancelApplicable:       sopclient.CancelOperations(),
 		ChangedTasks:           changed,
+		ChangedTasksError:      changedErr,
 		ReconcileListChanged:   listChanged,
 		ReconcileAcceptChanged: acceptChanged,
+		Decisions:              decisions(base, detail, changed, changedErr),
 	})
 }
 
@@ -288,6 +311,14 @@ const startVerb = "start"
 // cancelVerb is the CTRL006 Stop command verb.
 const cancelVerb = "cancel"
 
+// reconcileCommandKey is the project-scoped command key for the plain `reconcile`
+// command. It serializes reconcile against itself (a duplicate click cannot
+// start two reconciles for one project). Per-task accept-changed commands keep
+// their OWN per-task key (accept-changed:<taskID>) so the per-task status
+// fragment reports the accept-changed result and never conflates it with a
+// project-wide reconcile running under this key.
+const reconcileCommandKey = "reconcile"
+
 // command starts a SOP command (FR-8) and returns its status fragment.
 func (h *Handlers) command(w http.ResponseWriter, r *http.Request) {
 	project, verb := r.PathValue("project"), r.PathValue("verb")
@@ -337,7 +368,13 @@ func (h *Handlers) command(w http.ResponseWriter, r *http.Request) {
 		if listChanged, _ := sopclient.ReconcileOperations(); listChanged {
 			changed, err := h.sop.ChangedTasks(r.Context(), project)
 			if err != nil {
-				h.renderError(w, r, err)
+				// A failed/unreported listing is surfaced as such, and reconcile is
+				// refused rather than started against an unknown changed set.
+				h.render(w, http.StatusConflict, "error.html", errorPage{
+					baseData: h.base(r, ""),
+					Status:   http.StatusConflict,
+					Message:  "SOP did not report a changed-executed-task listing; reconcile is refused: " + err.Error(),
+				})
 				return
 			}
 			if pending := changed.Pending(); len(pending) > 0 {
@@ -378,9 +415,14 @@ func (h *Handlers) command(w http.ResponseWriter, r *http.Request) {
 	}
 	// start/run are the same start-or-continue surface: share one per-project
 	// command key so a duplicate click cannot launch a second SOP command.
+	// reconcile uses the project-scoped reconciliation key so duplicate reconcile
+	// clicks serialize.
 	key := verb
 	if verb == startVerb {
 		key = "run"
+	}
+	if verb == "reconcile" {
+		key = reconcileCommandKey
 	}
 	h.runner.Start(project, key, fn)
 	h.renderCommand(w, r, project, key, commandURL(project, key))
@@ -396,6 +438,9 @@ func (h *Handlers) commandStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if verb == startVerb {
 		verb = "run"
+	}
+	if verb == "reconcile" {
+		verb = reconcileCommandKey
 	}
 	h.renderCommand(w, r, project, verb, commandURL(project, verb))
 }
@@ -414,13 +459,14 @@ func pendingTaskIDs(pending []sopclient.ChangedExecutedTask) string {
 	return strings.Join(ids, ", ")
 }
 
-// acceptChangedTask is the CTRL012 per-task accept-changed approval (the
-// `--accept-changed` equivalent). It delegates validation and the action
-// itself entirely to Client.AcceptChangedTask: an unknown/unrelated task, an
-// unreported changed set, or no active plan is rejected before any mutation
-// could occur, and the action itself is refused with SOP's own unsupported gap
-// until SOP exposes a real per-task accept-changed application operation. This
-// handler never approves anything on its own.
+// acceptChangedTask is the CTRL012 per-task accept-changed approval (C2-004).
+// It delegates validation and the action entirely to Client.AcceptChangedTask:
+// an unknown/unrelated task, an unreported changed set, or no active plan is
+// rejected before any SOP call, and a valid selection is delegated to SOP as
+// `sop reconcile <PLAN.md> --accept-changed <id>`. A non-zero SOP result is
+// reported truthfully (a *ReconcileRejection, classified as a conflict). This
+// handler never approves anything on its own, never bulk-accepts, and viewing a
+// change performs no mutation.
 func (h *Handlers) acceptChangedTask(w http.ResponseWriter, r *http.Request) {
 	h.taskCommand(w, r, "accept-changed", func(ctx context.Context, project, taskID string) (string, error) {
 		return "", h.sop.AcceptChangedTask(ctx, project, taskID)
@@ -462,6 +508,14 @@ func (h *Handlers) reportTaskStatus(w http.ResponseWriter, r *http.Request) {
 	h.taskCommandStatus(w, r, "report")
 }
 
+// taskCommandKey maps a task-scoped command verb to its CommandRunner key. Every
+// task command — including accept-changed — keeps its own per-(verb, task) key,
+// so the per-task status fragment reports that command's own result and never
+// conflates it with a project-wide reconcile running under reconcileCommandKey.
+func taskCommandKey(verb, taskID string) string {
+	return verb + ":" + taskID
+}
+
 // taskCommand runs a task-scoped SOP command in the background and renders its
 // status fragment (which polls its own URL until the command finishes). Every
 // recovery action goes through here, so no two handlers can diverge.
@@ -471,7 +525,7 @@ func (h *Handlers) taskCommand(w http.ResponseWriter, r *http.Request, verb stri
 		h.notFound(w, r, "Project not found")
 		return
 	}
-	key := verb + ":" + taskID
+	key := taskCommandKey(verb, taskID)
 	_, _ = h.runner.Start(project, key, func(ctx context.Context) (string, error) {
 		return fn(ctx, project, taskID)
 	})
@@ -486,7 +540,7 @@ func (h *Handlers) taskCommandStatus(w http.ResponseWriter, r *http.Request, ver
 		h.notFound(w, r, "Project not found")
 		return
 	}
-	h.renderTaskCommand(w, r, project, taskID, verb+":"+taskID, taskCommandURL(project, taskID, verb))
+	h.renderTaskCommand(w, r, project, taskID, taskCommandKey(verb, taskID), taskCommandURL(project, taskID, verb))
 }
 
 // renderTaskCommand renders a task-scoped command's status, best-effort

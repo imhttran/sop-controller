@@ -25,31 +25,28 @@ Every action it offers is a request handed to SOP's own operation.
 
 ## When a Human Gate Appears
 
-The controller presents a human gate **only when SOP reports one**, from
-SOP-persisted evidence:
+The controller presents a human gate **only when SOP reports one** in its
+authoritative approval listing (`sop approvals --json`, read back verbatim from
+`.agent-sdlc/approvals.json`). SOP's structured `status`/`disposition` on a
+listing entry is the sole source of truth for gate presence and applicability.
 
-- SOP's run classification disposition is `NEEDS_HUMAN`, or
-- SOP's run classification kind is a human kind, or
-- SOP's run stage is `WAITING_FOR_HUMAN`, or
-- the task status is `BLOCKED` **and** SOP recorded a human classification.
-
-A `BLOCKED` task whose blocking reason is *not* a human reason (a dependency
-still running, or an environment/tooling problem) is **not** a human gate — the
-controller does not treat it as one.
+`BLOCKED` alone, a `NEEDS_HUMAN` classification, a `WAITING_FOR_HUMAN` run
+stage, model prose, attempt counts, and inactivity **never** manufacture a gate.
+When SOP reports no applicable gate, the controller shows an explicit absence and
+offers no control.
 
 See [../reference/STATUS-AND-RECOVERY.md](../reference/STATUS-AND-RECOVERY.md)
 for the "Needs Human" callout rule and the surrounding statuses.
 
 ## What You Are Asked to Decide
 
-When a gate appears, the controller shows the SOP-reported boundary and, where
-SOP exposes the operation, an approve / decline control. You are deciding
-whether to let SOP proceed past the gate; the resulting transition is still
-SOP's to make.
+When a gate appears, the controller shows the SOP-reported boundary and an
+approve / decline control. You are deciding whether to let SOP proceed past the
+gate; the resulting transition is still SOP's to make.
 
-- **Approve** — asks SOP to accept the gate (route
+- **Approve** — delegates to `sop approve <task-id>` (route
   `POST /projects/{project}/tasks/{task}/commands/approve`).
-- **Decline** — asks SOP to reject the gate (route
+- **Decline** — delegates to `sop decline <task-id>` (route
   `POST /projects/{project}/tasks/{task}/commands/decline`).
 - **Commit gate** — when SOP's `human.approval_before_commit` is on, `sop run`
   stops at the human gate and never commits; the controller reports that state
@@ -61,16 +58,31 @@ operation. When SOP reports a boundary but exposes no operation for an action,
 the controller shows the gate **read-only**, advertises no control that cannot
 succeed, and returns an explicit conflict if the action is invoked.
 
-## The Approval Gap (Read-Only Gates)
+## Delegating a Decision
 
-Human approval is a SOP lifecycle gate. Where SOP has no application operation
-for an approval action, `Client.ApproveTask` returns `ErrOperationUnsupported`
-and the controller shows the gate without an action. This is a **recorded gap**,
-not a hidden failure: see
-[../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md)
-and [../architecture/SOP-BOUNDARY.md](../architecture/SOP-BOUNDARY.md). The
-controller will expose the control once SOP grows the operation; it will not
-simulate the approval in the meantime.
+Both actions delegate through the controller's safe command boundary, using an
+argv slice (never a shell string):
+
+```text
+sop approve <task-id> [--by NAME] [--note TEXT]
+sop decline <task-id> [--by NAME] [--note TEXT]
+```
+
+The task id, actor (`--by`), and note (`--note`) are passed as discrete
+arguments, so an untrusted id, actor, or note can never be shell-interpreted. No
+`--run` is passed: recording a decision is **separate from execution**, and
+approving does not start a run. Continuing is a distinct, explicit choice.
+
+SOP validates the gate **at command time**. The controller does not pre-judge
+staleness from its own read of the listing; it delegates the decision and
+reports SOP's answer. When SOP rejects a decision (for example a stale or
+no-longer-applicable gate), the controller surfaces it as an **actionable
+conflict** carrying SOP's own message and the affected task id — never a `500`
+and never a fabricated success.
+
+The controller writes no approval state of its own: approving never marks a task
+complete in controller state, declining never manufactures a failure, and there
+is **no controller-side approval persistence**.
 
 ## Reconciliation Approval
 
@@ -84,12 +96,22 @@ sop reconcile <PLAN.md>
 and lets SOP decide. SOP preserves every unchanged task and stops at the human
 boundary when an executed task's definition changed.
 
+- The changed-executed-task set is read from SOP's **authoritative listing**,
+  `sop reconcile <PLAN.md> --list-changed --json`, resolved from the plan source
+  SOP recorded in `.agent-sdlc/plan.meta.json`. The retired
+  `.agent-sdlc/reconcile.json` artifact is never read (C2-003). The listing is a
+  **pure read**: it mutates no task state, graph, active plan, acceptance, or
+  provenance.
 - When SOP reports changed executed tasks awaiting reconciliation, the controller
   obtains approval **only for tasks SOP reported**; it never approves a task SOP
-  did not flag.
-- When SOP reports **no** changed-executed-task set, the controller reports the
-  absence rather than showing an empty success. (SOP records this set in
-  `.agent-sdlc/reconcile.json`.)
+  did not flag. Display title/stage are enriched from SOP's task store, never
+  computed from a controller-side plan diff.
+- When SOP reports **no** changed-executed-task listing (the verb is unsupported,
+  exits non-zero, or emits unparsable output), the controller reports the
+  absence/failure explicitly rather than showing an empty success.
+- Accepting a changed executed task is a distinct operation
+  (`sop reconcile <PLAN.md> --accept-changed <id>`) and remains a recorder gap
+  until SOP exposes it: the controller never simulates or bulk-accepts.
 
 ## Related Documentation
 
@@ -98,6 +120,6 @@ boundary when an executed task's definition changed.
 - [../reference/STATUS-AND-RECOVERY.md](../reference/STATUS-AND-RECOVERY.md) —
   when "Needs Human" is shown and the recovery actions.
 - [../architecture/SOP-BOUNDARY.md](../architecture/SOP-BOUNDARY.md) — the
-  approve/cancel operation gap.
+  operation boundary (approve/decline supported; cancel still a gap).
 - [../reference/CLI.md](../reference/CLI.md) — approve/decline and reconcile
   routes.

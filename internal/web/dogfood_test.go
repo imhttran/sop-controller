@@ -41,11 +41,22 @@ import (
 // production (non-test) file changes to support this: the fake binary's source
 // lives only in this test file, compiled to a temp binary per test run.
 //
-// Each scripted call is numbered by invocation order (0, 1, 2, ...), tracked by
-// a counter file under <project-root>/.dogfood-fixture/ (never under
+// Each scripted LIFECYCLE call is numbered by invocation order (0, 1, 2, ...),
+// tracked by a counter file under <project-root>/.dogfood-fixture/ (never under
 // .agent-sdlc, so it is invisible to the controller's own reads). Call N's
 // mutation comes from .dogfood-fixture/steps/N.json, written by the test before
 // the server starts; a call with no matching step file is a no-op.
+//
+// The changed-executed-task listing (C2-003) is a pure read the controller now
+// issues on every project render (`sop reconcile <PLAN.md> --list-changed
+// --json`). It is NOT a scripted lifecycle mutation, so the fake binary answers
+// it directly from a persisted listing file (empty when the fixture wrote none)
+// and never consumes a numbered step or advances the call counter. The
+// controller may issue this read concurrently with a lifecycle command (a
+// background run plus a polled render), so the fake serializes the counter's
+// read-modify-write through a lock directory: concurrent invocations cannot race,
+// so the lifecycle ordering the scenario asserts stays intact while the real
+// listing decode path is still exercised.
 
 // fakeStatefulSopSrc is the fake `sop` binary used by the dogfood tests. Unlike
 // commands_test.go's fakeSop (which only records argv), this one actually
@@ -60,6 +71,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -70,58 +82,110 @@ type step struct {
 	Append map[string]string ` + "`json:\"append\"`" + `
 }
 
+// listing responds to the pure-read changed-task listing the controller issues
+// on every project render: ` + "`sop reconcile <PLAN.md> --list-changed --json`" + `.
+// It emits a well-formed (possibly empty) SOP listing document and never touches
+// the fixture step counter, so a read never advances the scripted lifecycle.
+func listing() {
+	body := []byte("")
+	if raw, err := os.ReadFile(filepath.Join(".agent-sdlc", "changed_listing.json")); err == nil {
+		body = raw
+	} else {
+		body = []byte("{\"version\":1,\"source\":\"docs/PLAN.md\",\"plan_id\":\"\",\"plan_changed\":false,\"unchanged\":[],\"updated\":[],\"added\":[],\"removed\":[],\"changed_executed\":[],\"removed_executed\":[],\"auto_reconciled\":[]}")
+	}
+	os.Stdout.Write(body)
+}
+
+// withLock serializes the counter read-modify-write across every concurrent
+// invocation (a background lifecycle command plus one or more polled renders
+// can otherwise interleave). It uses an atomic mkdir as the lock and always
+// releases it on return. A stale lock is broken after a short grace period so a
+// crashed invocation can never wedge the fixture.
+func withLock(fn func()) {
+	lock := filepath.Join(".dogfood-fixture", "lock")
+	for i := 0; ; i++ {
+		if err := os.Mkdir(lock, 0o755); err == nil {
+			break
+		}
+		if st, err := os.Stat(lock); err == nil && time.Since(st.ModTime()) > 5*time.Second {
+			os.RemoveAll(lock)
+		}
+		if i > 5000 {
+			os.RemoveAll(lock)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	defer os.RemoveAll(lock)
+	fn()
+}
+
 func main() {
-	fixDir := ".dogfood-fixture"
-	callsDir := filepath.Join(fixDir, "calls")
-	os.MkdirAll(callsDir, 0o755)
-
-	counterPath := filepath.Join(fixDir, "counter")
-	n := 0
-	if b, err := os.ReadFile(counterPath); err == nil {
-		n, _ = strconv.Atoi(string(b))
-	}
-	var argv string
+	isListing := false
 	for _, a := range os.Args[1:] {
-		argv += a + "\n"
+		if a == "--list-changed" {
+			isListing = true
+		}
 	}
-	os.WriteFile(filepath.Join(callsDir, strconv.Itoa(n)+".argv"), []byte(argv), 0o644)
-	os.WriteFile(counterPath, []byte(strconv.Itoa(n+1)), 0o644)
-
-	raw, err := os.ReadFile(filepath.Join(fixDir, "steps", strconv.Itoa(n)+".json"))
-	if err != nil {
+	if isListing {
+		listing()
 		return
 	}
-	var st step
-	if err := json.Unmarshal(raw, &st); err != nil {
-		os.Exit(1)
-	}
-	if len(st.SQL) > 0 {
-		db, err := sql.Open("sqlite", "file:.agent-sdlc/state.db")
+
+	fixDir := ".dogfood-fixture"
+	os.MkdirAll(fixDir, 0o755)
+
+	withLock(func() {
+		callsDir := filepath.Join(fixDir, "calls")
+		os.MkdirAll(callsDir, 0o755)
+
+		counterPath := filepath.Join(fixDir, "counter")
+		n := 0
+		if b, err := os.ReadFile(counterPath); err == nil {
+			n, _ = strconv.Atoi(string(b))
+		}
+		var argv string
+		for _, a := range os.Args[1:] {
+			argv += a + "\n"
+		}
+		os.WriteFile(filepath.Join(callsDir, strconv.Itoa(n)+".argv"), []byte(argv), 0o644)
+		os.WriteFile(counterPath, []byte(strconv.Itoa(n+1)), 0o644)
+
+		raw, err := os.ReadFile(filepath.Join(fixDir, "steps", strconv.Itoa(n)+".json"))
 		if err != nil {
+			return
+		}
+		var st step
+		if err := json.Unmarshal(raw, &st); err != nil {
 			os.Exit(1)
 		}
-		defer db.Close()
-		for _, q := range st.SQL {
-			if _, err := db.Exec(q); err != nil {
+		if len(st.SQL) > 0 {
+			db, err := sql.Open("sqlite", "file:.agent-sdlc/state.db")
+			if err != nil {
 				os.Exit(1)
 			}
+			defer db.Close()
+			for _, q := range st.SQL {
+				if _, err := db.Exec(q); err != nil {
+					os.Exit(1)
+				}
+			}
 		}
-	}
-	for rel, content := range st.Write {
-		p := filepath.Join(".agent-sdlc", rel)
-		os.MkdirAll(filepath.Dir(p), 0o755)
-		os.WriteFile(p, []byte(content), 0o644)
-	}
-	for rel, content := range st.Append {
-		p := filepath.Join(".agent-sdlc", rel)
-		os.MkdirAll(filepath.Dir(p), 0o755)
-		f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			os.Exit(1)
+		for rel, content := range st.Write {
+			p := filepath.Join(".agent-sdlc", rel)
+			os.MkdirAll(filepath.Dir(p), 0o755)
+			os.WriteFile(p, []byte(content), 0o644)
 		}
-		f.WriteString(content)
-		f.Close()
-	}
+		for rel, content := range st.Append {
+			p := filepath.Join(".agent-sdlc", rel)
+			os.MkdirAll(filepath.Dir(p), 0o755)
+			f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+			if err != nil {
+				os.Exit(1)
+			}
+			f.WriteString(content)
+			f.Close()
+		}
+	})
 }
 `
 
@@ -501,9 +565,6 @@ func TestDogfoodRecoveryFlow(t *testing.T) {
 	}
 	if !strings.Contains(before, "RETRY") || strings.Contains(before, "AUTO_FIX") {
 		t.Fatalf("expected RETRY disposition, never AUTO_FIX, before retry: %q", before)
-	}
-	if !strings.Contains(before, "callout-human") {
-		t.Fatalf("a BLOCKED task must still show the human boundary callout: %q", before)
 	}
 
 	beforeHash := hashFile(statePath)

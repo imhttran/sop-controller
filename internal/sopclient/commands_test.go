@@ -32,6 +32,45 @@ func fakeSop(t *testing.T) (bin string, args func() []string) {
 	}
 }
 
+// fakeListingSop writes an executable "sop" that records its argv and emits the
+// given stdout for every invocation, so a test can drive
+// `sop reconcile <PLAN.md> --list-changed --json` and assert the decoded listing
+// without a real SOP binary.
+func fakeListingSop(t *testing.T, stdout string) (bin string, args func() []string) {
+	t.Helper()
+	dir := t.TempDir()
+	record := filepath.Join(dir, "args")
+	payload := filepath.Join(dir, "stdout")
+	bin = filepath.Join(dir, "sop")
+	if err := os.WriteFile(payload, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\n: > " + record + "\nfor a in \"$@\"; do printf '%s\\n' \"$a\" >> " + record + "; done\ncat " + payload + "\nexit 0\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return bin, func() []string {
+		raw, err := os.ReadFile(record)
+		if err != nil {
+			return nil
+		}
+		return strings.Fields(string(raw))
+	}
+}
+
+// fakeFailingSop writes an executable "sop" that always exits non-zero, so a
+// failed listing is surfaced as such rather than an empty success.
+func fakeFailingSop(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "sop")
+	script := "#!/bin/sh\necho 'sop: reconcile --list-changed unsupported' >&2\nexit 1\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return bin
+}
+
 // Recovery operations must drive SOP's own commands, never mutate state directly.
 func TestRecoveryCommandsDriveSop(t *testing.T) {
 	root := newProject(t)

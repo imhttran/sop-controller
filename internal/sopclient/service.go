@@ -63,7 +63,8 @@ func (c *Client) Root(id string) (string, bool) {
 func (c *Client) Projects(ctx context.Context) ([]ProjectSummary, error) {
 	out := make([]ProjectSummary, 0, len(c.order))
 	for _, id := range c.order {
-		s, err := c.stores[id].Summary(ctx)
+		changed, _ := c.ChangedTasks(ctx, id)
+		s, err := c.stores[id].Summary(ctx, changed)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +78,8 @@ func (c *Client) Project(ctx context.Context, id string) (ProjectDetail, error) 
 	if !ok {
 		return ProjectDetail{}, ErrProjectNotFound
 	}
-	sum, err := st.Summary(ctx)
+	changed, _ := c.ChangedTasks(ctx, id)
+	sum, err := st.Summary(ctx, changed)
 	if err != nil {
 		return ProjectDetail{}, err
 	}
@@ -86,7 +88,7 @@ func (c *Client) Project(ctx context.Context, id string) (ProjectDetail, error) 
 		return ProjectDetail{}, err
 	}
 	plan, _ := st.PlanSource()
-	return ProjectDetail{Summary: sum, Tasks: tasks, PlanSource: plan, Plan: st.Plan()}, nil
+	return ProjectDetail{Summary: sum, Tasks: tasks, PlanSource: plan, Plan: st.Plan(), PlanPerformance: st.PlanPerformance()}, nil
 }
 
 func (c *Client) Task(ctx context.Context, projectID, taskID string) (TaskDetail, error) {
@@ -136,13 +138,19 @@ func (c *Client) PlanSource(projectID string) (string, bool) {
 	return st.PlanSource()
 }
 
-// ChangedTasks is the CTRL012 read of the changed executed tasks awaiting
-// reconcile, as SOP reported them. It reads SOP's own reconcile report
-// (reconcile.json) read-only, verbatim, through the same read boundary as
-// plan.meta.json and the run artifacts; the controller never opens SOP state for
-// write and never computes a plan diff of its own. When SOP reports no set, the
-// result has Reported=false and no tasks, so a caller shows an explicit
-// absence instead of an empty success.
+// ChangedTasks is the C2-003 read of the changed executed tasks awaiting
+// reconcile, from SOP's authoritative listing
+// (`sop reconcile <PLAN.md> --list-changed --json`). It resolves the plan path
+// from SOP's recorded provenance (plan.meta.json), runs the listing verb through
+// the existing Commander boundary, and decodes SOP's document verbatim. The
+// listing is a PURE READ: it mutates no task state, graph, active plan,
+// acceptance, or provenance, and the controller never computes a plan diff.
+//
+// When SOP does not record an active plan the read returns ErrNoActivePlan and
+// never guesses a PLAN.md path. When the listing verb fails or emits unparsable
+// output the result has Reported=false (with the command/decode error surfaced),
+// so a caller shows an explicit unreported/failed state instead of an empty
+// success. A stale .agent-sdlc/reconcile.json is never read as a fallback.
 //
 // An unknown project yields ErrProjectNotFound, the same sentinel as every other
 // boundary operation.
@@ -151,7 +159,103 @@ func (c *Client) ChangedTasks(ctx context.Context, projectID string) (ChangedTas
 	if !ok {
 		return ChangedTasks{}, ErrProjectNotFound
 	}
-	return st.ChangedTasks(), nil
+	planPath, ok := st.PlanSource()
+	if !ok {
+		return ChangedTasks{}, ErrNoActivePlan
+	}
+	// `sop reconcile <PLAN.md> --list-changed --json` through the argv-slice
+	// Commander (no shell string): the plan path is a discrete argv element.
+	out, err := c.exec(ctx, projectID, "reconcile", planPath, "--list-changed", "--json")
+	if err != nil {
+		return ChangedTasks{}, err
+	}
+	doc, ok := decodeListing([]byte(out))
+	if !ok {
+		return ChangedTasks{}, fmt.Errorf("sop reconcile --list-changed --json: unparsable SOP changed-task listing")
+	}
+	return st.changedTasksFromListing(doc), nil
+}
+
+// ErrApprovalsUnavailable is returned by Approvals when SOP's approval listing
+// could not be read from ANY source: no persisted listing artifact exists AND
+// the `sop approvals --json` verb failed or emitted unparsable output. It is
+// distinct from a genuine empty listing (SOP reported a set with no gate
+// entries), which returns a Reported listing with no error. A caller MUST treat
+// this error as "SOP did not report an approval listing" and surface an explicit
+// absence/failure, never as "SOP reported no gates"; a failing SOP must never be
+// indistinguishable from a quiet one and silently hide a real gate.
+var ErrApprovalsUnavailable = errors.New("SOP did not report an approval listing")
+
+// Approvals is the C2-001 authoritative approval read: it returns SOP's
+// structured approval listing for a project. SOP owns gate presence and
+// applicability; the controller reports only what the listing says. The
+// controller never reconstructs a gate from run classification, run stage,
+// BLOCKED status, prose, attempt counts, or inactivity, and never parses
+// `sop approval`'s human text.
+//
+// SOP's listing is read through the same two present-or-absent sources as the
+// refresh path: the controller first reads SOP's persisted listing artifact
+// (`sop approvals --json` writes .agent-sdlc/approvals.json), and when SOP has
+// not persisted one it invokes the verb itself and decodes its stdout.
+//
+// Error contract (this is the fix for the silent-empty-listing defect):
+//   - a persisted, well-formed listing is returned verbatim with a nil error;
+//   - a genuine empty listing (SOP reported a set with no entries) is returned
+//     with Reported=true and a nil error;
+//   - when NO persisted listing exists AND the verb fails to run, times out,
+//     or emits unparsable output, the read returns an UNREPORTED listing AND a
+//     non-nil error wrapping ErrApprovalsUnavailable. A backend failure is
+//     therefore never indistinguishable from "SOP reported no gates": the
+//     caller can surface the failure instead of silently hiding a real gate.
+//
+// An unknown project yields ErrProjectNotFound, the same sentinel as every other
+// boundary operation.
+func (c *Client) Approvals(ctx context.Context, projectID string) (ApprovalsListing, error) {
+	st, ok := c.stores[projectID]
+	if !ok {
+		return ApprovalsListing{}, ErrProjectNotFound
+	}
+	if listing := st.Approvals(); listing.Reported {
+		return listing, nil
+	}
+	// No persisted listing artifact: ask SOP directly the same way the refresh
+	// path does, so a listing SOP emits only on stdout is read correctly. A failed
+	// or unparsable invocation is surfaced as a non-nil error rather than being
+	// swallowed into an unreported empty listing, which would make a failing SOP
+	// indistinguishable from a quiet one.
+	out, err := c.exec(ctx, projectID, "approvals", "--json")
+	if err != nil {
+		return ApprovalsListing{}, fmt.Errorf("%w: sop approvals --json: %v", ErrApprovalsUnavailable, err)
+	}
+	listing, ok := decodeApprovals([]byte(out))
+	if !ok {
+		return ApprovalsListing{}, fmt.Errorf("%w: sop approvals --json: unparsable SOP approval listing", ErrApprovalsUnavailable)
+	}
+	return listing, nil
+}
+
+// RefreshApprovals runs SOP's authoritative listing command
+// (`sop approvals --json`) through the CLI boundary and decodes its structured
+// output. It exists so a caller that wants SOP to (re)compute the listing can
+// drive the verb the same way every other command delegates to SOP; the read
+// path (Approvals) then reports the persisted artifact verbatim, falling back to
+// this same stdout decode when SOP has not persisted one.
+//
+// When SOP exposes no such verb the command reports an error and the caller
+// surfaces the present-or-absent failure, never controller-side inference.
+func (c *Client) RefreshApprovals(ctx context.Context, projectID string) (ApprovalsListing, error) {
+	if _, ok := c.stores[projectID]; !ok {
+		return ApprovalsListing{}, ErrProjectNotFound
+	}
+	out, err := c.exec(ctx, projectID, "approvals", "--json")
+	if err != nil {
+		return ApprovalsListing{}, err
+	}
+	listing, ok := decodeApprovals([]byte(out))
+	if !ok {
+		return ApprovalsListing{}, fmt.Errorf("sop approvals --json: unparsable SOP approval listing")
+	}
+	return listing, nil
 }
 
 // --- commands (FR-8): each delegates to the SOP CLI ---

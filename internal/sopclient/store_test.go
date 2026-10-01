@@ -72,6 +72,14 @@ func seed(t *testing.T, root string, stmts ...string) {
 	}
 }
 
+// writeApprovals writes SOP's authoritative approval listing artifact for a test.
+func writeApprovals(t *testing.T, root, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", approvalsArtifact), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSummaryTasksAndBlocking(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -90,7 +98,9 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 	defer st.Close()
 
 	ctx := context.Background()
-	sum, err := st.Summary(ctx)
+	// Summary folds in the SOP-reported changed set the caller supplies; with no
+	// reported set (zero value) no changed-task count is added.
+	sum, err := st.Summary(ctx, ChangedTasks{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,30 +181,35 @@ func TestFixCyclesAndRetryable(t *testing.T) {
 	}
 }
 
-// TestTasksProjectHumanDecisionBoundary verifies the list projection
-// (TaskSummary.NeedsHuman/ApprovalKind) agrees with the same humanBoundary
-// evidence TaskDetail.Approval uses, for each SOP-reported signal: a
-// dependency-only BLOCKED task is never flagged, but a human-classified
-// BLOCKED task, a WAITING_FOR_HUMAN run stage, and a NEEDS_HUMAN disposition
-// all are.
+// TestTasksProjectHumanDecisionBoundary verifies that the list projection
+// (TaskSummary.NeedsHuman/ApprovalKind) and the detail projection
+// (TaskDetail.Approval) both come from SOP's authoritative approval listing
+// (sop approvals --json), and that no controller-side signal produces a gate:
+// a BLOCKED task without a listing entry, a WAITING_FOR_HUMAN run stage, and a
+// NEEDS_HUMAN classification are all NOT approvals on their own.
 func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 	seed(t, root,
-		// BLOCKED only by an incomplete dependency: not a human boundary.
+		// BLOCKED only by an incomplete dependency: not a gate.
 		`INSERT INTO tasks VALUES ('dep','Dep','o','a','BLOCKED','waiting on upstream',0,3,'`+now+`','`+now+`')`,
-		// BLOCKED with a human-classified failure.
+		// BLOCKED task SOP reported an applicable gate for.
 		`INSERT INTO tasks VALUES ('blocked-human','BH','o','a','BLOCKED','needs a call',1,3,'`+now+`','`+now+`')`,
-		// Run parked at WAITING_FOR_HUMAN, task status not itself BLOCKED.
+		// Run parked at WAITING_FOR_HUMAN, task status not itself BLOCKED: no
+		// listing entry, so no gate.
 		`INSERT INTO tasks VALUES ('waiting','W','o','a','IMPLEMENTING',NULL,1,3,'`+now+`','`+now+`')`,
-		// NEEDS_HUMAN disposition reported independent of status/stage.
+		// NEEDS_HUMAN disposition reported independent of status/stage: no
+		// listing entry, so no gate.
 		`INSERT INTO tasks VALUES ('needs-human','NH','o','a','REVIEW',NULL,1,3,'`+now+`','`+now+`')`,
 	)
-	writeArtifact(t, root, "blocked-human", "classification.json",
-		`{"kind":"AMBIGUOUS_CONTRACT","disposition":"CONTINUE","confidence":"HIGH","reason":"ambiguous"}`)
 	writeArtifact(t, root, "waiting", "state.json", `{"id":"waiting","stage":"WAITING_FOR_HUMAN"}`)
 	writeArtifact(t, root, "needs-human", "classification.json",
 		`{"kind":"TEST_FAILURE","disposition":"NEEDS_HUMAN","confidence":"HIGH","reason":"ask a human"}`)
+	// Only blocked-human has an applicable listing entry.
+	writeApprovals(t, root, `{"approvals":[
+	  {"task_id":"blocked-human","kind":"CONTRACT","target":"blocked-human","reason":"ambiguous contract","evidence":"two contracts remain","stage":"WAITING_FOR_HUMAN","disposition":"NEEDS_HUMAN","status":"PENDING","requested_at":"2026-01-01T00:00:00Z","task_status":"BLOCKED"},
+	  {"task_id":"waiting","kind":"CONTRACT","target":"waiting","reason":"resolved","evidence":"","stage":"PASSED","disposition":"RESOLVED","status":"RESOLVED","requested_at":"2026-01-01T00:00:00Z","task_status":"IMPLEMENTING"}
+	]}`)
 
 	st, err := OpenStore(root)
 	if err != nil {
@@ -211,27 +226,32 @@ func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 		byID[task.ID] = task
 	}
 
+	// No listing entry: never a gate, regardless of BLOCKED/stage/classification.
 	if d := byID["dep"]; d.NeedsHuman {
 		t.Fatalf("dep: NeedsHuman = true, want false (dependency-only BLOCKED): %+v", d)
 	}
-	if b := byID["blocked-human"]; !b.NeedsHuman || b.ApprovalKind != ApprovalKindBlocked {
-		t.Fatalf("blocked-human: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", b.NeedsHuman, b.ApprovalKind, ApprovalKindBlocked, b)
+	if n := byID["needs-human"]; n.NeedsHuman {
+		t.Fatalf("needs-human: NeedsHuman = true, want false (NEEDS_HUMAN classification alone): %+v", n)
 	}
-	if w := byID["waiting"]; !w.NeedsHuman || w.ApprovalKind != ApprovalKindWaitingForHuman {
-		t.Fatalf("waiting: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", w.NeedsHuman, w.ApprovalKind, ApprovalKindWaitingForHuman, w)
+	// A resolved gate entry is never offered as actionable.
+	if w := byID["waiting"]; w.NeedsHuman {
+		t.Fatalf("waiting: NeedsHuman = true, want false (resolved listing entry): %+v", w)
 	}
-	if n := byID["needs-human"]; !n.NeedsHuman || n.ApprovalKind != ApprovalKindNeedsHuman {
-		t.Fatalf("needs-human: NeedsHuman=%v ApprovalKind=%q, want true/%s: %+v", n.NeedsHuman, n.ApprovalKind, ApprovalKindNeedsHuman, n)
+	// The applicable entry drives the list projection, carrying SOP's kind.
+	if b := byID["blocked-human"]; !b.NeedsHuman || b.ApprovalKind != "CONTRACT" {
+		t.Fatalf("blocked-human: NeedsHuman=%v ApprovalKind=%q, want true/CONTRACT: %+v", b.NeedsHuman, b.ApprovalKind, b)
 	}
 
-	// The same boundary must also be reported on TaskDetail.Approval.Present
-	// for the human-classified BLOCKED task, so the list and detail view agree.
+	// The detail view must agree with the list over the SAME listing.
 	detail, err := st.Task(context.Background(), "blocked-human")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !detail.Approval.Present {
-		t.Fatalf("TaskDetail.Approval.Present = false, want true for blocked-human")
+	if !detail.Approval.Present || detail.Approval.Kind != "CONTRACT" {
+		t.Fatalf("TaskDetail.Approval = %+v, want Present with Kind CONTRACT", detail.Approval)
+	}
+	if detail.NeedsHuman() != detail.Approval.Present {
+		t.Fatalf("TaskDetail.NeedsHuman()=%v disagrees with Approval.Present=%v", detail.NeedsHuman(), detail.Approval.Present)
 	}
 }
 

@@ -98,6 +98,13 @@ func newTestServerRootPoll(t *testing.T, sopBin string, poll time.Duration) (*ht
 	writeRun(t, root, "t3", "state.json", `{"id":"t3","stage":"WAITING_FOR_HUMAN"}`)
 	writeRun(t, root, "t3", "classification.json",
 		`{"kind":"AMBIGUOUS_CONTRACT","disposition":"NEEDS_HUMAN","confidence":"HIGH","reason":"Two valid contracts remain; the plan does not say which is authoritative."}`)
+	// C2-001: the approval gate is read from SOP's authoritative approval listing
+	// (sop approvals --json), not inferred from the run classification or stage.
+	// SOP reported an applicable gate for t3, so the listing carries it; the
+	// free-form reason is display-only.
+	if err := os.WriteFile(filepath.Join(dir, "approvals.json"), []byte(`{"approvals":[{"task_id":"t3","kind":"NEEDS_HUMAN","target":"t3","reason":"Two valid contracts remain; the plan does not say which is authoritative.","evidence":"NEEDS_HUMAN classification","stage":"WAITING_FOR_HUMAN","disposition":"NEEDS_HUMAN","status":"PENDING","requested_at":"2026-01-01T00:00:00Z","task_status":"BLOCKED"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	sop, err := sopclient.New([]string{root}, sopBin, time.Minute)
 	if err != nil {
@@ -477,9 +484,9 @@ func TestProjectViewDisplaysTaskCounts(t *testing.T) {
 		"ready badge shown":        strings.Contains(body, "ready"),
 		"blocked badge shown":      strings.Contains(body, "blocked"),
 		"commands section shown":   strings.Contains(body, "Commands") && strings.Contains(body, "Validate"),
-		// t3 reports a NEEDS_HUMAN classification, so the hero must surface a
-		// "needs your attention" count rather than letting it read as ordinary
-		// BLOCKED work.
+		// t3 reports an applicable approval gate in SOP's listing, so the hero must
+		// surface a "needs your attention" count rather than letting it read as
+		// ordinary BLOCKED work.
 		"needs-attention hero badge shown": strings.Contains(body, "1 needs your") && strings.Contains(body, "s-attention"),
 	}
 	for check, passed := range checks {
@@ -668,7 +675,8 @@ func TestControllerAnswersOperationalQuestions(t *testing.T) {
 		t.Error("Q3 FAILED: Cannot answer 'What is blocked?' - blocked status not visible")
 	}
 
-	// Question 4: Why did it fail, and does SOP need me? (a blocked task)
+	// Question 4: Why did it fail, and does SOP need me? (a task with an
+	// applicable approval gate in SOP's listing)
 	code, body = get(t, srv.URL+"/projects/"+id+"/tasks/t3")
 	if code != 200 {
 		t.Fatalf("task detail: status %d", code)

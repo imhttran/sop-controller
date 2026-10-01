@@ -219,6 +219,16 @@
                 {{template "checkpoint.html" .Task}}
             </section>
 
+            <section class="panel evidence-panel evidence-performance">
+                <div class="panel-head">
+                    <h2>Performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time and operation counts</span
+                    >
+                </div>
+                {{template "performance.html" .Task.Performance}}
+            </section>
+
             <section class="panel evidence-panel evidence-validation">
                 <div class="panel-head">
                     <h2>Validation</h2>

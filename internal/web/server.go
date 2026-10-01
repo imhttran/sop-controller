@@ -11,10 +11,16 @@ import (
 
 // Options wires the dashboard server.
 type Options struct {
-	SOP            *sopclient.Client
-	Views          *Views
-	StaticFS       fs.FS
-	Poll           time.Duration
+	SOP      *sopclient.Client
+	Views    *Views
+	StaticFS fs.FS
+	Poll     time.Duration
+	// Attention is the short, configurable cadence at which the live-progress
+	// transports re-read SOP's reported human-decision gate so a newly recorded
+	// gate is surfaced promptly. A zero value resolves to the documented short
+	// default; it is never a fixed multi-minute wait and is never used to infer a
+	// gate from inactivity.
+	Attention      time.Duration
 	CommandTimeout time.Duration
 	AllowNetwork   bool
 	AccessToken    string
@@ -25,7 +31,7 @@ type Options struct {
 
 // NewServer builds the HTTP handler for the dashboard.
 func NewServer(opts Options) http.Handler {
-	h := &Handlers{sop: opts.SOP, views: opts.Views, poll: opts.Poll, runner: NewCommandRunner(opts.CommandTimeout), discoveryReport: opts.Discovery}
+	h := &Handlers{sop: opts.SOP, views: opts.Views, poll: opts.Poll, attention: opts.Attention, runner: NewCommandRunner(opts.CommandTimeout), discoveryReport: opts.Discovery}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(opts.StaticFS))))
@@ -37,6 +43,11 @@ func NewServer(opts Options) http.Handler {
 	mux.HandleFunc("GET /projects/{project}", h.project)
 	mux.HandleFunc("GET /projects/{project}/tasks", h.projectTasks)
 	mux.HandleFunc("GET /projects/{project}/activity", h.projectActivity)
+	// C2-006 project-level human-decision surface: a read-only aggregation of
+	// SOP-reported gates (approve/decline) and SOP-reported changed-executed
+	// tasks pending accept. The GET renders state only; every mutation it exposes
+	// is a POST to the existing task-scoped command routes below.
+	mux.HandleFunc("GET /projects/{project}/decisions", h.projectDecisions)
 	// Live activity delivery (CTRL007): an SSE stream and a bounded-poll
 	// fallback, both read-only windows over the persisted activity read.
 	mux.HandleFunc("GET /projects/{project}/activity/stream", h.activityStream)

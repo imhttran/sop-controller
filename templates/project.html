@@ -36,7 +36,7 @@
                 </div>
                 <div class="counts">
                     {{if .Project.Summary.NeedsAttention}}
-                    <a class="badge s-attention" href="#tasks"
+                    <a class="badge s-attention" href="#decisions"
                         >{{.Project.Summary.NeedsAttention}} needs your
                         attention</a
                     >
@@ -73,6 +73,8 @@
                     {{end}}
                 </div>
             </section>
+
+            {{template "decisions.html" .Decisions}}
 
             <section class="panel">
                 <div class="panel-head"><h2>Commands</h2></div>
@@ -188,6 +190,16 @@
             </section>
 
             {{template "changed_tasks.html" .}}
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Plan performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time for the active plan's run</span
+                    >
+                </div>
+                {{template "plan_performance.html" .Project.PlanPerformance}}
+            </section>
 
             <section class="panel">
                 <div class="panel-head"><h2>Tasks</h2></div>

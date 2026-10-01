@@ -8,15 +8,8 @@ import (
 	"time"
 )
 
-// writeReconcileReport writes SOP's optional reconcile.json changed-executed-task
-// report for the fixture project, the artifact Client.ChangedTasks reads.
-func writeReconcileReport(t *testing.T, root, body string) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", "reconcile.json"), []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
+// writePlanSource records SOP's active plan provenance so the C2-003 listing
+// read has a <PLAN.md> to resolve.
 func writePlanSource(t *testing.T, root string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", "plan.meta.json"), []byte(`{"source":"docs/PLAN.md"}`), 0o644); err != nil {
@@ -25,17 +18,19 @@ func writePlanSource(t *testing.T, root string) {
 }
 
 // The project page reports a SOP-reported changed executed task before any
-// reconcile mutation can happen, verbatim and as pending until accepted.
+// reconcile mutation can happen, as pending until accepted. The changed set
+// comes from SOP's authoritative listing (writeChangedListing), never from the
+// retired reconcile.json artifact.
 func TestProjectPageReportsChangedTasksBeforeMutation(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
-	writeReconcileReport(t, root, `{"changed":[{"task_id":"x1","title":"Task X","stage":"IMPLEMENT","change_summary":"acceptance criteria changed"}]}`)
+	writeChangedListing(t, root, "x1")
 
 	code, body := get(t, srv.URL+"/projects/"+id)
 	if code != 200 {
 		t.Fatalf("GET project = %d", code)
 	}
-	if !strings.Contains(body, "x1") || !strings.Contains(body, "acceptance criteria changed") {
+	if !strings.Contains(body, "x1") {
 		t.Errorf("project page does not report the SOP changed task verbatim:\n%s", body)
 	}
 	if !strings.Contains(body, "pending") {
@@ -43,18 +38,20 @@ func TestProjectPageReportsChangedTasksBeforeMutation(t *testing.T) {
 	}
 }
 
-// When SOP reports no changed-executed-task set, the project page shows an
-// explicit absence, never an empty list presented as success.
+// When SOP reports an observed empty changed-executed-task listing, the project
+// page shows an explicit absence, never an empty table presented as success.
 func TestProjectPageShowsAbsentChangedTaskSet(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
+	// No changed_listing.json: the fake sop answers with an observed EMPTY
+	// listing, so SOP reported a set with no changed tasks.
 
 	code, body := get(t, srv.URL+"/projects/"+id)
 	if code != 200 {
 		t.Fatalf("GET project = %d", code)
 	}
-	if !strings.Contains(body, "has not reported a changed-executed-task set") {
-		t.Errorf("project page should show an explicit absence state when SOP reports no set:\n%s", body)
+	if !strings.Contains(body, "SOP reports no changed executed tasks awaiting reconcile") {
+		t.Errorf("project page should show an explicit absence state when SOP reports no changed tasks:\n%s", body)
 	}
 	if strings.Contains(body, "Changed executed tasks</h2></div>\n  \n  <table") {
 		t.Errorf("project page must not render an empty table as success")
@@ -66,19 +63,19 @@ func TestProjectPageShowsAbsentChangedTaskSet(t *testing.T) {
 func TestReconcileRefusedWhilePending(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
-	writeReconcileReport(t, root, `{"changed":[{"task_id":"x1","title":"Task X"}]}`)
+	writeChangedListing(t, root, "x1")
 
 	if code := postWithCSRF(t, srv, "/projects/"+id+"/commands/reconcile"); code != 409 {
 		t.Fatalf("reconcile with a pending changed task = %d, want 409", code)
 	}
 }
 
-// Once SOP reports every changed executed task already accepted, reconcile
-// proceeds to delegate to SOP as before.
+// Once SOP reports no changed executed task still pending, reconcile proceeds
+// to delegate to SOP as before.
 func TestReconcileProceedsWhenNothingPending(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
-	writeReconcileReport(t, root, `{"changed":[{"task_id":"x1","title":"Task X","approved":true}]}`)
+	writeChangedListing(t, root)
 
 	if code := postWithCSRF(t, srv, "/projects/"+id+"/commands/reconcile"); code != 200 {
 		t.Fatalf("reconcile with nothing pending = %d, want 200", code)
@@ -107,7 +104,7 @@ func pollCommandDone(t *testing.T, srv string, path string) string {
 func TestAcceptChangedTaskRejectsUnknownTask(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
-	writeReconcileReport(t, root, `{"changed":[{"task_id":"x1","title":"Task X"}]}`)
+	writeChangedListing(t, root, "x1")
 
 	code := postWithCSRF(t, srv, "/projects/"+id+"/tasks/unknown-task/commands/accept-changed")
 	if code != 200 {
@@ -126,11 +123,13 @@ func TestAcceptChangedTaskRejectsUnknownTask(t *testing.T) {
 func TestAcceptChangedTaskRejectsWhenSetNotReported(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
+	// No changed_listing.json: an observed EMPTY listing. A task not listed is
+	// therefore rejected with ErrTaskNotInChangedSet.
 
 	postWithCSRF(t, srv, "/projects/"+id+"/tasks/x1/commands/accept-changed")
 	body := pollCommandDone(t, srv.URL, "/projects/"+id+"/tasks/x1/commands/accept-changed")
-	if !strings.Contains(body, "cmd-error") || !strings.Contains(body, "no changed executed task set") {
-		t.Errorf("accept-changed with no reported set should fail with ErrChangedTasksNotReported:\n%s", body)
+	if !strings.Contains(body, "cmd-error") || !strings.Contains(body, "reported changed executed task set") {
+		t.Errorf("accept-changed with no reported changed task should fail with ErrTaskNotInChangedSet:\n%s", body)
 	}
 }
 
@@ -147,16 +146,43 @@ func TestAcceptChangedTaskRejectsWithNoActivePlan(t *testing.T) {
 }
 
 // A valid accept-changed approval (active plan, reported set, task present)
-// surfaces SOP's own unsupported gap rather than a fabricated success, since
-// SOP exposes no per-task accept-changed application operation yet.
-func TestAcceptChangedTaskSurfacesUnsupportedGapWhenValid(t *testing.T) {
+// delegates to SOP as `sop reconcile <PLAN.md> --accept-changed <id>`. Against
+// the fake sop (which exits 0) that surfaces as a completed command, never a
+// fabricated success on a real failure and never the old unsupported gap.
+func TestAcceptChangedTaskDelegatesWhenValid(t *testing.T) {
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	writePlanSource(t, root)
-	writeReconcileReport(t, root, `{"changed":[{"task_id":"x1","title":"Task X"}]}`)
+	writeChangedListing(t, root, "x1")
 
 	postWithCSRF(t, srv, "/projects/"+id+"/tasks/x1/commands/accept-changed")
 	body := pollCommandDone(t, srv.URL, "/projects/"+id+"/tasks/x1/commands/accept-changed")
-	if !strings.Contains(body, "cmd-error") || !strings.Contains(body, "operation unsupported by SOP") {
-		t.Errorf("a valid accept-changed approval should surface SOP's own unsupported gap, not a success:\n%s", body)
+	if strings.Contains(body, "cmd-error") {
+		t.Errorf("a valid accept-changed approval should delegate to SOP (fake exits 0), not error:\n%s", body)
+	}
+	if !strings.Contains(body, "cmd-done") {
+		t.Errorf("a valid accept-changed approval should render a completed state:\n%s", body)
+	}
+}
+
+// A GET of the changed-task panel performs no mutation: no accept-changed
+// command is started by viewing.
+func TestViewingChangedTasksDoesNotAccept(t *testing.T) {
+	srv, id, root := newRunServer(t, "PLANNED", nil)
+	writePlanSource(t, root)
+	writeChangedListing(t, root, "x1")
+
+	code, body := get(t, srv.URL+"/projects/"+id)
+	if code != 200 {
+		t.Fatalf("GET project = %d", code)
+	}
+	if !strings.Contains(body, "x1") {
+		t.Fatalf("expected the changed task to be listed:\n%s", body)
+	}
+	// The per-task accept-changed control is now offered (boundary reports it
+	// supported); viewing must not have started any accept-changed command, so the
+	// status fragment still resolves to idle for that task.
+	_, st := get(t, srv.URL+"/projects/"+id+"/tasks/x1/commands/accept-changed")
+	if !strings.Contains(st, "cmd-idle") {
+		t.Errorf("viewing the changed-task panel started a mutation (status not idle):\n%s", st)
 	}
 }

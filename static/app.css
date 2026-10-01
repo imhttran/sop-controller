@@ -641,6 +641,100 @@ ul.roots code {
     word-break: break-word;
 }
 
+/* Human-decision surface (C2-006): a stacked, mobile-safe decisions panel.
+   Items stack vertically, action rows wrap, and controls keep adequate spacing
+   so the panel never overflows horizontally on a narrow viewport. */
+.decisions .decisions-sub {
+    margin: 1rem 0 0.5rem;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+ul.decisions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.decisions-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
+    margin-bottom: 0.75rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.decisions-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.decisions-task {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.decisions-title {
+    color: var(--muted);
+}
+
+.decisions-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+}
+
+.decisions-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.decisions-form .input {
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    min-width: 0;
+    flex: 1 1 8rem;
+}
+
+/* Narrow viewport: stack everything, no horizontal scrolling, generous tap
+   targets with clear separation between approve/decline/accept controls. */
+@media (max-width: 640px) {
+    .decisions-form {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .decisions-form .input,
+    .decisions-form .btn {
+        width: 100%;
+    }
+
+    .decisions-actions {
+        gap: 0.75rem;
+    }
+
+    .decisions-item {
+        padding: 0.75rem;
+    }
+}
+
 @media (prefers-color-scheme: dark) {
     .d-autofix,
     .d-continue,

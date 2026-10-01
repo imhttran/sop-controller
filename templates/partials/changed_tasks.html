@@ -1,10 +1,14 @@
-{{- /* CTRL012: Changed executed tasks panel. SOP optionally reports the
-       changed-executed-task set awaiting reconcile via .agent-sdlc/reconcile.json;
-       the controller never computes a plan diff itself. Rendered only when
+{{- /* CTRL012 / C2-003: Changed executed tasks panel. SOP reports the
+       changed-executed-task set awaiting reconcile through its authoritative
+       listing `sop reconcile <PLAN.md> --list-changed --json`, resolved from
+       SOP's recorded plan provenance; the controller never computes a plan diff
+       itself and never reads a stale artifact. Rendered only when
        ReconcileListChanged is true (SOP's own read operation exists); within
        that, ChangedTasks.Reported distinguishes "SOP reported a set" from "SOP
-       reported none" so an absent set is never shown as an empty success. Every
-       field shown is SOP's own value, verbatim.
+       reported none" so an absent set is never shown as an empty success. A
+       failed/unparsable listing is surfaced explicitly (ChangedTasksError)
+       rather than rendered as an empty success. Every field shown is SOP's own
+       value, with Title/Stage enriched from SOP's task store.
 
        Each pending task's accept-changed control is its own per-task approval
        (the --accept-changed equivalent), gated on ReconcileAcceptChanged: until
@@ -14,7 +18,15 @@
 {{if .ReconcileListChanged}}
 <section class="panel">
   <div class="panel-head"><h2>Changed executed tasks</h2></div>
-  {{if .ChangedTasks.Reported}}
+  {{if .ChangedTasksError}}
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">unavailable</span>
+    <span class="small">
+      SOP did not report a changed-executed-task listing for the active plan:
+      {{.ChangedTasksError}}
+    </span>
+  </p>
+  {{else if .ChangedTasks.Reported}}
   {{if .ChangedTasks.Tasks}}
   <table class="list">
     <thead>

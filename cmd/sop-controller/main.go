@@ -51,13 +51,14 @@ func main() {
 		Views:          views,
 		StaticFS:       staticFS,
 		Poll:           cfg.PollInterval,
+		Attention:      cfg.AttentionInterval,
 		CommandTimeout: cfg.CommandTimeout,
 		AllowNetwork:   cfg.AllowNetwork,
 		AccessToken:    cfg.AccessToken,
 		Discovery:      report,
 	})
 
-	log.Printf("SOP Controller listening on http://%s (%d project(s), poll %s)", cfg.Addr, len(roots), cfg.PollInterval)
+	log.Printf("SOP Controller listening on http://%s (%d project(s), poll %s, attention %s)", cfg.Addr, len(roots), cfg.PollInterval, cfg.AttentionInterval)
 	if err := http.ListenAndServe(cfg.Addr, handler); err != nil {
 		log.Fatal(err)
 	}

@@ -97,7 +97,7 @@ The controller reads only SOP-owned artifacts, all read-only:
 | `.agent-sdlc/runs/<task>/report.json` | run report, quality decision, JEV summary |
 | `.agent-sdlc/runs/<task>/activity.jsonl` | structured activity events (observer-only) |
 | `.agent-sdlc/plan.meta.json` | SOP's recorded active plan source and final gate |
-| `.agent-sdlc/reconcile.json` | SOP's reported changed-executed-task set |
+| `sop reconcile <PLAN.md> --list-changed --json` | SOP's authoritative changed-executed-task listing, resolved from the recorded plan source (C2-003; the retired `.agent-sdlc/reconcile.json` artifact is never read) |
 
 Absent artifacts are reported as absent — never as a pass. See
 [../reference/STATUS-AND-RECOVERY.md](../reference/STATUS-AND-RECOVERY.md).

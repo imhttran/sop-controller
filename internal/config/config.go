@@ -10,6 +10,23 @@ import (
 	"time"
 )
 
+// AttentionIntervalDefault is the documented short default cadence at which the
+// live-progress transports re-read SOP's reported human-decision gate, so a
+// newly recorded gate becomes visible promptly (a small multiple of this
+// interval) rather than after an arbitrary long wait. It is deliberately short
+// and there is no multi-minute fallback anywhere.
+const AttentionIntervalDefault = time.Second
+
+// AttentionIntervalFloor is the lower bound the resolved attention cadence is
+// clamped to. A configured value below it is raised to it, so the cadence can
+// never be zero/negative (which would busy-poll) while still guaranteeing
+// promptness.
+const AttentionIntervalFloor = 250 * time.Millisecond
+
+// AttentionPollEnv is the environment variable that configures the short
+// attention-poll cadence.
+const AttentionPollEnv = "SOP_CONTROLLER_ATTENTION_POLL"
+
 // Config is read from the environment (optionally seeded from .env / .env.dev).
 type Config struct {
 	// Addr is the HTTP listen address. Loopback by default.
@@ -28,6 +45,12 @@ type Config struct {
 	CommandTimeout time.Duration
 	// PollInterval is the default HTMX poll cadence for active views.
 	PollInterval time.Duration
+	// AttentionInterval is the short, configurable cadence at which the
+	// live-progress transports re-read SOP's reported human-decision gate so a
+	// newly recorded gate surfaces promptly. It governs only how often SOP is
+	// re-read; it is never used to infer a gate from inactivity, and it is never
+	// a fixed multi-minute wait.
+	AttentionInterval time.Duration
 	// AllowNetwork permits binding to a non-loopback address (requires AccessToken).
 	AllowNetwork bool
 	// AccessToken gates access when AllowNetwork is on.
@@ -87,15 +110,16 @@ func Load() Config {
 		projectRoots = []string{"."}
 	}
 	c := Config{
-		Addr:           envOr("SOP_CONTROLLER_ADDR", "127.0.0.1:8080"),
-		ProjectRoots:   projectRoots,
-		Workspaces:     splitList(workspaceEnv),
-		DiscoveryDepth: intOr("SOP_CONTROLLER_DISCOVERY_DEPTH", DefaultMaxDepth),
-		SOPBin:         envOr("SOP_BIN", "sop"),
-		CommandTimeout: durationOr("SOP_CONTROLLER_COMMAND_TIMEOUT", 15*time.Minute),
-		PollInterval:   durationOr("SOP_CONTROLLER_POLL", 3*time.Second),
-		AllowNetwork:   boolOr("SOP_CONTROLLER_ALLOW_NETWORK", false),
-		AccessToken:    os.Getenv("SOP_CONTROLLER_TOKEN"),
+		Addr:              envOr("SOP_CONTROLLER_ADDR", "127.0.0.1:8080"),
+		ProjectRoots:      projectRoots,
+		Workspaces:        splitList(workspaceEnv),
+		DiscoveryDepth:    intOr("SOP_CONTROLLER_DISCOVERY_DEPTH", DefaultMaxDepth),
+		SOPBin:            envOr("SOP_BIN", "sop"),
+		CommandTimeout:    durationOr("SOP_CONTROLLER_COMMAND_TIMEOUT", 15*time.Minute),
+		PollInterval:      durationOr("SOP_CONTROLLER_POLL", 3*time.Second),
+		AttentionInterval: ResolveAttentionInterval(os.Getenv(AttentionPollEnv)),
+		AllowNetwork:      boolOr("SOP_CONTROLLER_ALLOW_NETWORK", false),
+		AccessToken:       os.Getenv("SOP_CONTROLLER_TOKEN"),
 	}
 	if !c.AllowNetwork && !isLoopback(c.Addr) {
 		log.Printf("[config] %q is not loopback; restricting to 127.0.0.1 (set SOP_CONTROLLER_ALLOW_NETWORK=true to allow)", c.Addr)
@@ -105,6 +129,30 @@ func Load() Config {
 		log.Fatal("[config] SOP_CONTROLLER_ALLOW_NETWORK=true requires SOP_CONTROLLER_TOKEN")
 	}
 	return c
+}
+
+// ResolveAttentionInterval turns the raw attention-poll setting into the
+// resolved short attention cadence.
+//
+// Contract:
+//   - empty or unparseable input resolves to AttentionIntervalDefault (the
+//     documented short default), never to a long wait;
+//   - a positive input is clamped up to AttentionIntervalFloor so the cadence is
+//     always a bounded, non-zero short interval;
+//   - the result is never a fixed multi-minute wait.
+//
+// The cadence governs only how often the existing live-progress transports
+// re-read SOP's reported gate. It is never consulted to infer a gate from
+// inactivity.
+func ResolveAttentionInterval(raw string) time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil || d <= 0 {
+		return AttentionIntervalDefault
+	}
+	if d < AttentionIntervalFloor {
+		return AttentionIntervalFloor
+	}
+	return d
 }
 
 func isLoopback(addr string) bool {

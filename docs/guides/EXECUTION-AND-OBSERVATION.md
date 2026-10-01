@@ -39,6 +39,17 @@ Prefer the **activity stream** (or the activity view, which uses it). It is
 already the controller's native surface; there is no need to build your own
 watching mechanism.
 
+## Performance
+
+The task and project pages show SOP's own performance measurements: how long a
+run's stages took and how many agent/validation/review/fix operations it cost,
+read from SOP's `metrics.json` artifacts. The controller **measures nothing** —
+it starts no timer and derives no duration from request latency or polling
+cadence. The values are diagnostic evidence (SOP's `internal/perf` output) and
+never a decision: they do not change task status, which task runs next, retries,
+or approvals. A run with no performance artifact (an older run) shows an
+explicit "unavailable" state rather than fabricated zeros.
+
 ## Polling
 
 Polling is a *fallback delivery mode*, not the primary one. When the live
