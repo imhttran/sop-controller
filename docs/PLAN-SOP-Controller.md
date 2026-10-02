@@ -87,7 +87,81 @@ sop-controller    = visibility + human control
 The controller must not parse terminal output to infer lifecycle state.
 It should consume structured SOP state, activity, reports, and actions.
 
-# CTRL001 --- Define Controller-to-SOP Boundary
+## Capabilities
+
+These findings describe existing repository capabilities, not task completion
+or verification against an external SOP binary. Reuse completed work and verify
+remaining acceptance criteria; SOP retains lifecycle and mutation authority.
+
+### sop_application_api_boundary — EXISTS
+
+- Evidence: internal/sopclient/boundary.go defines Boundary()/Lookup() and delegated command operations; internal/sopclient/boundary_test.go exercises the contract and read-only persistence boundary.
+- Owner: controller presents and delegates; SOP owns workflow effects.
+- Gap: CancelRun remains unsupported; AcceptChangedTask is supported at the controller boundary, delegating to sop reconcile <PLAN.md> --accept-changed <TASK_ID>. External reconciliation-flag support was UNVERIFIED / NOT EXERCISED in the recorded C2-009 sandbox run.
+
+### structured_activity_event_model — EXISTS
+
+- Evidence: internal/sopclient/run.go defines ActivityEvent and reads SOP-produced activity.jsonl; internal/sopclient/activity.go sanitizes summaries; internal/sopclient/run_test.go covers parsing and bounded history.
+- Owner: SOP produces activity; controller reads and safely presents it.
+
+### Structured run/plan/task status model — EXISTS
+
+- Evidence: internal/sopclient/status.go, internal/sopclient/types.go.
+- Owner: sop-controller (sopclient package) over SOP state.db/artifacts.
+
+### Start/Continue run boundary operation — EXISTS
+
+- Evidence: internal/sopclient/boundary.go, internal/sopclient/run.go, internal/sopclient/start.go.
+- Owner: sop-controller (delegates to agentic-sop) via sopclient.
+
+### Retry task boundary operation — EXISTS
+
+- Evidence: internal/sopclient/boundary.go, internal/sopclient/commands.go.
+- Owner: sop-controller (delegates to agentic-sop) via sopclient.
+
+### Cancel/stop active run boundary operation — MISSING
+
+- Evidence: internal/sopclient/boundary.go.
+- Owner: agentic-sop (must expose a cancellation application operation).
+- Gap: SOP exposes no cancellation application operation.
+- Resolution: Keep CancelRun unsupported and offer no Stop control until SOP supplies the operation; never simulate cancellation in the controller.
+
+### Live activity delivery (SSE/polling) — PARTIAL
+
+- Evidence: internal/web/activity_stream.go, internal/sopclient/activity_window.go.
+- Owner: sop-controller (web layer over sopclient).
+
+### Task detail and activity UI — PARTIAL
+
+- Evidence: internal/web/handlers.go, internal/web/render.go, templates/, static/.
+- Owner: sop-controller (web layer).
+
+### Failure classification and recovery display — EXISTS
+
+- Evidence: internal/sopclient/classification.go, internal/sopclient/types.go.
+- Owner: sop-controller (renders SOP classification) via sopclient.
+
+### Checkpoint / bounded continuation progress — EXISTS
+
+- Evidence: internal/sopclient/checkpoint.go.
+- Owner: sop-controller (renders SOP-reported progress) via sopclient.
+
+### Human approval controls — PARTIAL
+
+- Evidence: internal/sopclient/boundary.go, internal/sopclient/approval.go, internal/web/approval.go.
+- Owner: sop-controller (offers controls) delegating to agentic-sop approval boundary.
+
+### Plan reconciliation controls — PARTIAL
+
+- Evidence: internal/sopclient/boundary.go, internal/sopclient/changed_task.go, internal/sopclient/accept_changed_test.go, internal/web/reconcile_test.go.
+- Owner: sop-controller (presents changes, requires explicit per-task approval) delegating to agentic-sop reconcile.
+
+### Responsive dashboard and run controls — PARTIAL
+
+- Evidence: internal/web/dashboard_controls_test.go, internal/web/render.go.
+- Owner: sop-controller (web layer).
+
+## CTRL001 --- Define Controller-to-SOP Boundary
 
 Define the application/API contract the controller uses to observe and
 control SOP.
@@ -112,6 +186,10 @@ Reuse existing SOP application boundaries where they already exist.
 Do not create duplicate orchestration services merely for the
 controller.
 
+### Requires
+
+- sop_application_api_boundary
+
 ### Acceptance Criteria
 
 - SOP remains the only lifecycle owner.
@@ -121,7 +199,7 @@ controller.
 - Existing CLI behavior remains usable.
 - Boundary is documented and testable.
 
-# CTRL002 --- Expose Structured Activity Events
+## CTRL002 --- Expose Structured Activity Events
 
 Expose a structured event model for meaningful SOP activity.
 
@@ -142,6 +220,15 @@ actions such as file inspection, repository mutation, command
 execution, validation, review, JEV, quality decisions, recovery, and
 completion.
 
+### Dependencies
+
+- CTRL001
+
+### Requires
+
+- structured_activity_event_model
+- sop_application_api_boundary
+
 ### Acceptance Criteria
 
 - Events are machine-readable.
@@ -152,7 +239,7 @@ completion.
   command/file contents are not exposed.
 - CLI and controller can consume the same underlying activity model.
 
-# CTRL003 --- Expose Run, Plan, and Task Status
+## CTRL003 --- Expose Run, Plan, and Task Status
 
 Expose enough structured state for the controller to render the current
 plan and execution status without reading `state.db` directly.
@@ -175,6 +262,15 @@ report location/reference
 final plan gate
 ```
 
+### Dependencies
+
+- CTRL001
+
+### Requires
+
+- Structured run/plan/task status model
+- sop_application_api_boundary
+
 ### Acceptance Criteria
 
 - Controller can render current plan status from SOP APIs.
@@ -183,12 +279,22 @@ final plan gate
 - Missing diagnostic data does not imply PASS.
 - Controller never opens or modifies SOP state storage directly.
 
-# CTRL004 --- Start or Continue a SOP Run
+## CTRL004 --- Start or Continue a SOP Run
 
 Allow the controller to request the equivalent of normal `sop run`
 behavior through the SOP boundary.
 
 The controller must not choose the next task itself.
+
+### Dependencies
+
+- CTRL001
+- CTRL003
+
+### Requires
+
+- Start/Continue run boundary operation
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -200,7 +306,7 @@ The controller must not choose the next task itself.
 - Completed plans report completion rather than starting phantom work.
 - Duplicate clicks/requests do not create concurrent duplicate runs.
 
-# CTRL005 --- Retry a Blocked Task
+## CTRL005 --- Retry a Blocked Task
 
 Allow a user to request SOP's existing retry behavior for a blocked
 task.
@@ -208,6 +314,16 @@ task.
 The controller displays SOP's reason and recovery classification but
 does not decide whether a failure is code, provider, plan, or human
 failure.
+
+### Dependencies
+
+- CTRL001
+- CTRL003
+
+### Requires
+
+- Retry task boundary operation
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -219,12 +335,22 @@ failure.
 - Retry does not reset task state by direct persistence mutation.
 - Failure reasons remain visible after retry.
 
-# CTRL006 --- Stop or Cancel an Active Run
+## CTRL006 --- Stop or Cancel an Active Run
 
 Add a bounded cancellation path for an active controller-started run.
 
 Cancellation must stop future agent/lifecycle work safely without
 pretending the current task passed or completed.
+
+### Dependencies
+
+- CTRL001
+- CTRL004
+
+### Requires
+
+- Cancel/stop active run boundary operation
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -236,7 +362,7 @@ pretending the current task passed or completed.
 - Cancellation does not use destructive Git or state deletion.
 - UI clearly distinguishes cancelled/stopped from failed/completed.
 
-# CTRL007 --- Add Live Activity Delivery
+## CTRL007 --- Add Live Activity Delivery
 
 Deliver structured activity to the controller using the simplest
 local-first mechanism supported by the current architecture.
@@ -244,6 +370,17 @@ local-first mechanism supported by the current architecture.
 Prefer existing subscription support, SSE, or bounded polling. Do not
 introduce Kafka, Redis, or distributed infrastructure solely for this
 feature.
+
+### Dependencies
+
+- CTRL002
+- CTRL003
+
+### Requires
+
+- Live activity delivery (SSE/polling)
+- structured_activity_event_model
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -254,7 +391,7 @@ feature.
 - Transport failure does not alter SOP execution state.
 - Tests do not depend on timing-sensitive sleeps.
 
-# CTRL008 --- Add Task Detail and Activity UI
+## CTRL008 --- Add Task Detail and Activity UI
 
 Create a task detail view suitable for desktop and small devices.
 
@@ -279,6 +416,19 @@ Recovery disposition
 Report
 ```
 
+### Dependencies
+
+- CTRL003
+- CTRL007
+- CTRL009
+- CTRL010
+
+### Requires
+
+- Task detail and activity UI
+- Structured run/plan/task status model
+- Live activity delivery (SSE/polling)
+
 ### Acceptance Criteria
 
 - Current task is obvious.
@@ -288,7 +438,7 @@ Report
 - UI remains usable on a small screen.
 - No raw prompt/secrets are displayed.
 
-# CTRL009 --- Display Failure Classification and Recovery
+## CTRL009 --- Display Failure Classification and Recovery
 
 Render failure information produced by SOP.
 
@@ -305,6 +455,15 @@ NEEDS_HUMAN
 
 The controller must not independently classify failures.
 
+### Dependencies
+
+- CTRL003
+
+### Requires
+
+- Failure classification and recovery display
+- Structured run/plan/task status model
+
 ### Acceptance Criteria
 
 - SOP classification/disposition is displayed when available.
@@ -314,7 +473,7 @@ The controller must not independently classify failures.
 - Deterministic failures are not automatically labeled provider.
 - Unknown classification remains unknown rather than guessed.
 
-# CTRL010 --- Display Continuation and Checkpoint Progress
+## CTRL010 --- Display Continuation and Checkpoint Progress
 
 Expose useful bounded-progress information for work that spans multiple
 agent invocations.
@@ -332,6 +491,15 @@ missing: 4
 next: add deterministic coverage
 ```
 
+### Dependencies
+
+- CTRL003
+
+### Requires
+
+- Checkpoint / bounded continuation progress
+- Structured run/plan/task status model
+
 ### Acceptance Criteria
 
 - Progress comes from SOP/run artifacts or structured activity.
@@ -340,13 +508,22 @@ next: add deterministic coverage
 - Partial progress is not treated as task completion.
 - Continuation remains an SOP lifecycle decision.
 
-# CTRL011 --- Add Human Approval Controls
+## CTRL011 --- Add Human Approval Controls
 
 Expose approval actions only where SOP reports an actual approval
 boundary.
 
 Examples may include commit approval or other explicit human gates
 already supported by SOP.
+
+### Dependencies
+
+- CTRL003
+
+### Requires
+
+- Human approval controls
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -356,12 +533,22 @@ already supported by SOP.
 - Approval is recorded with existing SOP provenance.
 - Declining/withholding approval preserves truthful task state.
 
-# CTRL012 --- Add Plan Reconciliation Controls
+## CTRL012 --- Add Plan Reconciliation Controls
 
 Expose safe reconciliation through SOP's existing reconcile operation.
 
 The controller should present changed executed tasks and require
 explicit per-task approval equivalent to `--accept-changed`.
+
+### Dependencies
+
+- CTRL003
+- CTRL011
+
+### Requires
+
+- Plan reconciliation controls
+- sop_application_api_boundary
 
 ### Acceptance Criteria
 
@@ -373,7 +560,7 @@ explicit per-task approval equivalent to `--accept-changed`.
 - Existing run history and lifecycle state are preserved.
 - Unknown/unrelated task approvals are rejected.
 
-# CTRL013 --- Add Responsive Dashboard and Run Controls
+## CTRL013 --- Add Responsive Dashboard and Run Controls
 
 Integrate controls into the existing controller dashboard.
 
@@ -387,6 +574,19 @@ TASK | STATE | STAGE | RECOVERY | FIX
 
 Primary controls should be contextual rather than always enabled.
 
+### Dependencies
+
+- CTRL004
+- CTRL005
+- CTRL006
+- CTRL011
+- CTRL012
+
+### Requires
+
+- Responsive dashboard and run controls
+- sop_application_api_boundary
+
 ### Acceptance Criteria
 
 - Start/Continue is visible when appropriate.
@@ -398,7 +598,7 @@ Primary controls should be contextual rather than always enabled.
 - Layout works on narrow/mobile screens.
 - Repeated clicks cannot launch duplicate actions.
 
-# CTRL014 --- Add Deterministic Unit and Integration Tests
+## CTRL014 --- Add Deterministic Unit and Integration Tests
 
 Required cases include:
 
@@ -418,6 +618,30 @@ Required cases include:
 14. Sensitive prompts/secrets are not exposed in activity.
 15. Small-screen task detail/control rendering remains usable.
 
+### Dependencies
+
+- CTRL002
+- CTRL003
+- CTRL004
+- CTRL005
+- CTRL006
+- CTRL007
+- CTRL008
+- CTRL009
+- CTRL010
+- CTRL011
+- CTRL012
+- CTRL013
+
+### Requires
+
+- sop_application_api_boundary
+- structured_activity_event_model
+- Structured run/plan/task status model
+- Live activity delivery (SSE/polling)
+- Responsive dashboard and run controls
+- Task detail and activity UI
+
 ### Acceptance Criteria
 
 - Deterministic.
@@ -427,7 +651,7 @@ Required cases include:
   primitive can be used.
 - Existing controller and SOP tests continue passing.
 
-# CTRL015 --- Add End-to-End Dogfood Scenario
+## CTRL015 --- Add End-to-End Dogfood Scenario
 
 Use the completed JEV workflow as the primary controller dogfood
 scenario.
@@ -465,6 +689,18 @@ Use deterministic fake/provider fixtures for automated tests. The real
 historical HTTP 500 is an acceptance scenario, not a required live
 failure.
 
+### Dependencies
+
+- CTRL013
+- CTRL014
+
+### Requires
+
+- sop_application_api_boundary
+- Live activity delivery (SSE/polling)
+- Responsive dashboard and run controls
+- Failure classification and recovery display
+
 ### Acceptance Criteria
 
 - Normal and recovery flows demonstrated.
@@ -475,7 +711,7 @@ failure.
 - No external model required by automated tests.
 - Final state remains truthful.
 
-# CTRL016 --- Documentation and Operator Guidance
+## CTRL016 --- Documentation and Operator Guidance
 
 Document architecture, run controls, activity semantics, failure
 display, approval/reconcile boundaries, cancellation, and
@@ -489,6 +725,16 @@ Controller observes and requests human actions.
 Controller does not implement SOP policy.
 ```
 
+### Dependencies
+
+- CTRL013
+- CTRL015
+
+### Requires
+
+- Responsive dashboard and run controls
+- sop_application_api_boundary
+
 ### Acceptance Criteria
 
 - New user can start/continue a run from the controller.
@@ -497,11 +743,23 @@ Controller does not implement SOP policy.
 - Activity privacy/safety rules are clear.
 - CLI remains a supported equivalent control surface.
 
-# CTRL017 --- Final Regression and Compatibility Gate
+## CTRL017 --- Final Regression and Compatibility Gate
 
 Verify controller integration does not change SOP semantics.
 
-## Validation
+### Dependencies
+
+- CTRL014
+- CTRL015
+- CTRL016
+
+### Requires
+
+- sop_application_api_boundary
+- Structured run/plan/task status model
+- Responsive dashboard and run controls
+
+### Validation
 
 Use actual repository/package ownership discovered during
 implementation. At minimum run the relevant focused tests followed by
@@ -535,7 +793,7 @@ build commands as well.
 - No destructive recovery is introduced.
 - No safety gate is bypassed.
 
-# Safety Invariants
+## Safety Invariants
 
 Never require or perform:
 
@@ -570,7 +828,7 @@ The controller must not manufacture validation PASS, review PASS, JEV
 PASS, quality PASS, CI PASS, task completion, commit, PR creation, or
 merge completion.
 
-# Failure and Recovery Boundary
+## Failure and Recovery Boundary
 
 SOP owns failure classification and recovery decisions.
 
@@ -589,7 +847,7 @@ failure
 The controller renders this state and invokes permitted actions. It does
 not independently transform one disposition into another.
 
-# Local-First Strategy
+## Local-First Strategy
 
 V1 should remain local-first and simple.
 
@@ -606,7 +864,7 @@ agentic-sop
 Do not introduce distributed infrastructure unless an existing
 repository requirement already demands it.
 
-# Out of Scope for V1
+## Out of Scope for V1
 
 - duplicating SOP scheduler logic in the controller
 - controller-owned FIX loops
@@ -621,7 +879,7 @@ repository requirement already demands it.
 - Kafka/Redis solely for activity delivery
 - parsing CLI text as the primary integration contract
 
-# Definition of Done
+## Definition of Done
 
 SOP Controller run control is complete when a user can observe the
 current SOP plan, task, stage, progress, diagnostics, and safe live
