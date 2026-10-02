@@ -40,12 +40,32 @@ wins and is never overwritten; `.env.dev` only fills in for development).
   SOP, so this never changes execution. See
   [../specs/ACTIVITY.md](../specs/ACTIVITY.md).
 
+## SOP-Side Configuration
+
+Some behavior is governed by SOP's own configuration, not by a controller
+environment variable. The controller only reads and reports the resulting state;
+it never sets these itself:
+
+- `human.approval_before_commit` (SOP configuration) controls whether a human
+  must approve before committing. When it is on, `sop run` stops at the human
+  gate and never commits; the controller reports that state rather than
+  proceeding. See [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md).
+
+Approval and reconciliation are distinct human-decision domains, each with its
+own SOP-owned evidence and delegated operation (see
+[../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md)). Both are driven by the
+documented SOP commands; there is no controller configuration that changes which
+domain applies. There is **no** configuration to enable cancellation: SOP
+exposes no cancellation operation, so `CancelRun` remains unsupported until SOP
+exposes cancellation.
+
 ### Command Timeout
 
 `SOP_CONTROLLER_COMMAND_TIMEOUT` controls how long a single SOP command can run
 before the dashboard terminates it. This applies uniformly to all commands (run,
-resume, validate, review, retry). The timeout is enforced by the dashboard's
-command runner; exceeding it returns a timeout error in the UI.
+resume, validate, review, retry, reconcile, approve, decline). The timeout is
+enforced by the dashboard's command runner; exceeding it returns a timeout error
+in the UI.
 
 This is a different concern from `SOP_CONTROLLER_POLL`: the timeout bounds how
 long one SOP command process (started by a user action) may run

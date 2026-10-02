@@ -27,6 +27,21 @@ The terms MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are normative.
   application/API/CLI boundary (`internal/sopclient` → `sop` CLI verbs).
 - The controller MUST report SOP lifecycle, status, and recovery information
   rather than inventing its own lifecycle semantics.
+- The controller presents and delegates; SOP owns read and mutation authority.
+  The controller MUST NOT assert mutation authority over SOP state.
+
+## Presentation vs. Applicability
+
+As stated normatively in
+[../architecture/SOP-BOUNDARY.md](../architecture/SOP-BOUNDARY.md): the
+controller determines how a decision is **presented**, while SOP determines
+whether a decision is **applicable** and how it changes lifecycle state.
+
+- The controller MUST NOT decide that a human decision is applicable, and MUST
+  NOT apply a lifecycle effect itself.
+- When SOP reports a decision as stale or not-applicable, the controller MUST
+  surface SOP's answer verbatim (as an explicit conflict) rather than inventing
+  a success or a failure.
 
 ## Status Reporting
 
@@ -51,6 +66,17 @@ The terms MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are normative.
 - The controller MUST NOT choose which task runs next.
 - The controller MAY offer Run and Resume actions that delegate task selection
   to SOP; SOP decides which runnable task is selected.
+- The controller MUST NOT decide any scheduling or selection outcome; those are
+  SOP's, and the boundary exposes no selection operation.
+
+## Human Decisions
+
+- The controller MAY present human decisions (approval of a task gate, and
+  reconciliation of changed executed tasks). Approval and reconciliation are
+  distinct human-decision domains; see
+  [HUMAN-APPROVAL.md](HUMAN-APPROVAL.md).
+- Presenting a decision MUST NOT imply applicability: SOP alone determines
+  whether a decision applies and what it does to lifecycle state.
 
 ## Project Identity
 

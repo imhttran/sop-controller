@@ -10,6 +10,15 @@ Contract: [`BOUNDARY-CONTRACT.md`](BOUNDARY-CONTRACT.md)
 Code: `internal/sopclient/boundary.go`
 Tests: `internal/sopclient/boundary_test.go`, `internal/web/boundary_test.go`
 
+The operation mapping below has been aligned with the current `Boundary()`
+descriptor: `CancelRun` is unsupported; `AcceptChangedTask` is supported and
+delegates to `sop reconcile <PLAN.md> --accept-changed <TASK_ID>`. The contract
+and inventory are maintained current references at retained historical paths.
+This report's recorded validation remains historical evidence, not a new test
+run or proof of external-binary support. In the [C2-009 sandbox run](../C2-009-REPORT.md),
+the reconciliation flags were **UNVERIFIED** against real SOP and the
+real-binary scenarios were **NOT EXERCISED** (readiness **NOT READY**).
+
 ## Acceptance criteria
 
 ### 1. SOP remains the only lifecycle owner
@@ -19,19 +28,20 @@ Tests: `internal/sopclient/boundary_test.go`, `internal/web/boundary_test.go`
   code path that writes a task's status, stage, or history.
 - Evidence: `internal/sopclient/boundary.go` (`Boundary` descriptors all read SOP
   artifacts or invoke a `sop` verb); `internal/sopclient/service.go` command
-  methods (`Run`, `Resume`, `Retry`, `Reconcile`, ...) all delegate to `Commander.Exec`.
+  methods (`Run`, `Resume`, `Retry`, `Reconcile`, `ApproveTask`, `DeclineTask`,
+  `AcceptChangedTask`, ...) all delegate to `Commander.Exec`.
 - Test: `TestBoundaryDoesNotMutateSOPPersistence`.
 
 ### 2. Controller operations map to SOP application operations
 
-- All eleven PRD operations appear exactly once in `Boundary()`, each with its
-  `sopclient` entry point and the SOP application operation it uses.
-  `CancelRun` and `ApproveTask` are recorded as explicit unsupported gaps.
+- All `Boundary()` operations appear exactly once, each with its `sopclient`
+  entry point and the SOP application operation it uses. `CancelRun` is recorded
+  as an explicit unsupported gap; every other operation is supported.
 - Evidence: the mapping table in the contract document; `sopclient.Boundary` and
   `sopclient.Lookup`.
 - Tests: `TestBoundaryContractMatchesPRD`, `TestReadOperationsReportSOPValues`,
   `TestCommandOperationsDelegateToSOP`.
-- Gap tests: `TestUnsupportedOperationsReturnErrOperationUnsupported`.
+- Gap test: `TestUnsupportedOperationsReturnErrOperationUnsupported`.
 
 ### 3. Controller does not directly mutate SOP persistence
 
@@ -58,8 +68,9 @@ Tests: `internal/sopclient/boundary_test.go`, `internal/web/boundary_test.go`
 ### 5. Existing CLI behavior remains usable
 
 - The controller still drives SOP via the same commands. No `sop` verb, flag, or
-  existing `sopclient` method changed; the boundary adds `CancelRun`/`ApproveTask`
-  (which always report the gap) and documents the existing surface.
+  existing `sopclient` method changed; the boundary documents the existing
+  surface and records the one missing SOP capability (`CancelRun`) rather than
+  simulating it.
 - Evidence: `internal/sopclient/commands.go` and the command methods in
   `service.go` are unchanged; `internal/web/server.go` routes are unchanged.
 - Tests: `internal/web/server_test.go` (`TestCommandsReachSOPSafely`,
@@ -68,10 +79,11 @@ Tests: `internal/sopclient/boundary_test.go`, `internal/web/boundary_test.go`
 
 ### 6. Boundary is documented and testable
 
-- Documented: `docs/history/CTRL001/BOUNDARY-CONTRACT.md` (invariants, operation table,
-  gap records, consumer audit, test map).
+- Documented: `docs/history/CTRL001/BOUNDARY-CONTRACT.md` (invariants, operation
+  table, gap record, consumer audit, test map).
 - Testable: `sopclient.Boundary()`/`Lookup()` are exported data the tests assert
-  against, so the contract cannot silently drift from the code.
+  against, so the contract cannot silently drift from the code; availability
+  helpers (`*Operations()`) derive from `Boundary()`.
 - Tests: `internal/sopclient/boundary_test.go`,
   `internal/web/boundary_test.go`.
 
@@ -80,19 +92,18 @@ Tests: `internal/sopclient/boundary_test.go`, `internal/web/boundary_test.go`
 | Operation | Status | Reason |
 |-----------|--------|--------|
 | `CancelRun` | unsupported | SOP exposes no `sop cancel` application operation |
-| `ApproveTask` | unsupported | SOP exposes no `sop approve` application operation |
 
-Both remain in the contract and return `ErrOperationUnsupported`. Neither is
-simulated in the controller.
+`CancelRun` remains in the contract and returns `ErrOperationUnsupported`. It is
+not simulated in the controller, and availability is derived from `Boundary()`.
 
 ## Scope statement
 
 No functionality beyond the CTRL001 boundary definition was added: no new
-orchestration service, no scheduler logic, no cancellation/approval
-implementation, no change to SOP persistence, and no change to existing SOP
-commands. `agentic-sop` was not modified.
+orchestration service, no scheduler logic, no cancellation implementation, no
+change to SOP persistence, and no change to existing SOP commands. `agentic-sop`
+was not modified.
 
-## Validation
+## Recorded CTRL001 validation (historical)
 
     gofmt -l .            # no files
     go build ./...        # ok

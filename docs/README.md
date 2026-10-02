@@ -29,8 +29,11 @@ plans/*.md               — what work needs to happen
 SOP execution            — SOP remains the workflow authority
 ```
 
-Plans MUST NOT override specifications. Historical artifacts provide
-traceability only and MUST NOT override current specifications.
+Plans MUST NOT override specifications. Historical evidence provides
+traceability only and MUST NOT override current specifications. The CTRL001
+boundary contract and inventory retain historical paths but are maintained
+current, non-normative references derived from `Boundary()` and the code;
+verification reports remain point-in-time evidence.
 
 ## Getting Started
 
@@ -123,15 +126,21 @@ Concrete interfaces, values, commands, and states.
 - [guides/DEVELOPMENT.md](guides/DEVELOPMENT.md) — build, test, format, and
   develop the controller.
 
+## Current Boundary References at Retained Historical Paths
+
+These references describe the current implementation and do not replace the
+normative requirements, specifications, or architecture constraints.
+
+- [history/CTRL001/BOUNDARY-CONTRACT.md](history/CTRL001/BOUNDARY-CONTRACT.md) —
+  maintained rendering of the authoritative `Boundary()` descriptor and test map.
+- [history/CTRL001/BOUNDARY-INVENTORY.md](history/CTRL001/BOUNDARY-INVENTORY.md) —
+  maintained code-derived inventory of controller reads and commands.
+
 ## Historical Documentation
 
 Point-in-time verification artifacts kept for traceability. Non-normative: they
 do not define current behavior.
 
-- [history/CTRL001/BOUNDARY-CONTRACT.md](history/CTRL001/BOUNDARY-CONTRACT.md) —
-  the controller-to-SOP boundary contract (operation table and tests).
-- [history/CTRL001/BOUNDARY-INVENTORY.md](history/CTRL001/BOUNDARY-INVENTORY.md) —
-  inventory of controller reads and commands against the boundary.
 - [history/CTRL001/BOUNDARY-VERIFICATION.md](history/CTRL001/BOUNDARY-VERIFICATION.md) —
   verification of the CTRL001 boundary.
 - [history/PLAN-IDENTITY.md](history/PLAN-IDENTITY.md) — plan identity and

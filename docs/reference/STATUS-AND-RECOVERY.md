@@ -37,8 +37,8 @@ The controller reports these verbatim; it never constructs or invents a stage.
 
 ## Recovery Dispositions
 
-SOP's failure disposition, read from `.agent-sdlc/runs/<task>/classification.json`
-(or `report.json`):
+SOP's failure disposition, read from
+`.agent-sdlc/runs/<task>/classification.json` (or `report.json`):
 
 ```text
 AUTO_FIX   CONTINUE   RETRY   REPLAN   NEEDS_HUMAN
@@ -58,6 +58,20 @@ conflict is *not* a human boundary: SOP classifies those as
 `AUTO_FIX`/`CONTINUE`/`RETRY`, and the dashboard shows that recovery instead of
 asking you to act. See [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md).
 
+## Human-Decision Domains
+
+Two distinct human decisions can be surfaced; they rely on different SOP-owned
+evidence and delegate to different operations, and neither substitutes for the
+other. See [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md).
+
+- **Approval** (task-level human gate): evidence is SOP-reported human
+  classification / gate and stage (`NEEDS_HUMAN`, human classification kind,
+  `WAITING_FOR_HUMAN`, human-`BLOCKED`); the delegated operations are
+  `sop approve` / `sop decline`.
+- **Reconciliation** (changed-executed-task decision): evidence is SOP's
+  authoritative `sop reconcile <PLAN.md> --list-changed --json` listing; the
+  decision delegates to `sop reconcile <PLAN.md> --accept-changed <TASK_ID>`.
+
 ## Recovery Actions
 
 Every action drives a SOP command; none mutates `state.db` directly.
@@ -68,17 +82,27 @@ Every action drives a SOP command; none mutates `state.db` directly.
 | Force retry | `sop retry <task> --force` |
 | Retry all | `sop retry --all` |
 | Reconcile | `sop reconcile <PLAN.md>` |
+| Reconcile listing | `sop reconcile <PLAN.md> --list-changed --json` |
+| Accept changed task | `sop reconcile <PLAN.md> --accept-changed <TASK_ID>` |
 | Open report | `sop report <task>` |
+| Approve | `sop approve <task-id> [--by NAME] [--note TEXT]` |
+| Decline | `sop decline <task-id> [--by NAME] [--note TEXT]` |
 | Resume / Run | `sop resume` / `sop run` |
 
 **Reconcile** is offered only when SOP has recorded an active plan in
 `.agent-sdlc/plan.meta.json`; the dashboard passes that recorded path and lets
 SOP decide, preserving every unchanged task and stopping at the human boundary
-when an executed task's definition changed.
+when an executed task's definition changed. The retired
+`.agent-sdlc/reconcile.json` artifact is never read.
+
+**Cancel is not offered.** SOP exposes no cancellation application operation, so
+`CancelRun` remains unsupported until SOP exposes cancellation; the dashboard
+advertises no cancel control.
 
 ## Related Documentation
 
 - [../specs/WORKFLOW.md](../specs/WORKFLOW.md) — status handling requirements.
 - [../specs/EXECUTION.md](../specs/EXECUTION.md) — stage and execution reporting.
-- [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md) — the human gate.
+- [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md) — the human gate and
+  the approval-vs-reconciliation distinction.
 - [CLI.md](CLI.md) — the commands above in route form.
