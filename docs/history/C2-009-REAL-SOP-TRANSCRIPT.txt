@@ -1,0 +1,2416 @@
+Formatting note: trailing spaces/tabs removed for Git whitespace checks; observations retained.
+
+===================================================================
+ C2-009 dogfood against real agentic-sop (CONTROLLER-driven)
+ repo:        /Users/imhttran/agentic-workspace/projects/sop-controller
+ disposable:  c2-009-dogfood.4a0Q7q/project
+ transcript:  c2-009-dogfood.4a0Q7q/transcript.log
+ readiness:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ scenarios:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+
+## S0: sop binary readiness
+resolved sop: /Users/imhttran/go/bin/sop
+-- sop --version --
+(no --version; continuing)
+unknown command: --version
+run `sop --help` for usage
+-- sop --help --
+sop — a standard operating procedure for agentic software development
+
+Usage:
+  sop <command> [arguments]
+
+Commands:
+  init      initialize project state (.agent-sdlc/state.db)
+  status    list persisted tasks
+  task <id> show details for a single task
+  plan      generate PLAN.md from PRD.md or a task file
+  tasks     build and persist tasks from .agent-sdlc/plan.json
+  validate  run the configured build/test/lint commands
+  review    review the current changes with the configured engine
+  run       run [PLAN.md | --task TASK.md]  (normal entry point)
+  prompt    run an ad-hoc prompt through SOP (--capability CAP, --file PATH, --json)
+  commit    commit the current changes (needs --yes when the human gate is on)
+  pr        push a task branch and open a pull request (needs --yes)
+  mcp       serve tools over the Model Context Protocol (stdio)
+  report    print a concise summary of the latest run
+  retry     requeue a BLOCKED task so the next run retries it (--all for every task)
+  approve   record an approval decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively; --run continues after)
+  decline   record a decline decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively)
+  approval  show SOP's approval request (if any) for a task
+  approvals list every task waiting at an approval gate (--json)
+  reconcile reconcile an intentional PLAN change (--accept-changed <id>, --list-changed)
+  providers inspect configured provider runtimes and their models (--models)
+  eval      run a corpus of task files and report benchmark metrics
+  resume    report the next legal action for interrupted work
+  version   print the CLI version
+  help      show this help
+readiness artifact written: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt (state: READY)
+
+## S0: disposable project provisioned (human.approval_before_commit: true)
+project root: c2-009-dogfood.4a0Q7q/project
+NOTE: whether the real sop honours this exact config key/path and whether
+this minimal PLAN.md reaches a commit gate is recorded, not assumed: the
+S1 'reach gate' step below fails loudly (and is recorded) if sop run does
+not produce an approval gate.
+
+## Launch controller with SOP_CONTROLLER_PROJECTS=c2-009-dogfood.4a0Q7q/project
+controller failed to start; see c2-009-dogfood.4a0Q7q/controller.log
+NOT EXERCISED [S1]: controller failed to start against the disposable project
+NOT EXERCISED [S2]: controller failed to start against the disposable project
+NOT EXERCISED [S3]: controller failed to start against the disposable project
+===================================================================
+ C2-009 dogfood against real agentic-sop (CONTROLLER-driven)
+ repo:        /Users/imhttran/agentic-workspace/projects/sop-controller
+ recorded UTC: 2026-10-03T16:25:38Z
+ controller revision: 07fbc3af3d0558427144c63bff380f8503b74ebb (working-tree harness)
+ disposable:  /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project
+ transcript:  /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/transcript.log
+ readiness:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ scenarios:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+
+## S0: sop binary readiness
+resolved sop: /Users/imhttran/go/bin/sop
+-- /Users/imhttran/go/bin/sop version --
+sop dev
+-- binary build metadata --
+/Users/imhttran/go/bin/sop: go1.27.1
+	path	github.com/imhttran/agentic-sop/cmd/sop
+	mod	github.com/imhttran/agentic-sop	v0.0.0-20261002041210-d0af5a475e1b+dirty
+	dep	github.com/dustin/go-humanize	v1.0.1	h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
+	dep	github.com/google/uuid	v1.6.0	h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+	dep	github.com/mattn/go-isatty	v0.0.24	h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
+	dep	github.com/ncruces/go-strftime	v1.0.0	h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
+	dep	github.com/remyoudompheng/bigfft	v0.0.0-20230129092748-24d4a6f8daec	h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
+	dep	golang.org/x/sys	v0.47.0	h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+	dep	gopkg.in/yaml.v3	v3.0.1	h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+	dep	modernc.org/libc	v1.75.7	h1:o3DTP9/0p9pKmY2WCKQaySW6wIiZhNM7wc2lUoyhfew=
+	dep	modernc.org/mathutil	v1.7.1	h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=
+	dep	modernc.org/memory	v1.12.1	h1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=
+	dep	modernc.org/sqlite	v1.59.0	h1:X1es1GpqBlS/5T+vbM4HLUdaa8OtQx468DF2vrx+38A=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	GOARM64=v8.0
+	build	vcs=git
+	build	vcs.revision=d0af5a475e1be7a89c58571923cdc02896e15990
+	build	vcs.time=2026-10-02T04:12:10Z
+	build	vcs.modified=true
+-- sop --help --
+sop — a standard operating procedure for agentic software development
+
+Usage:
+  sop <command> [arguments]
+
+Commands:
+  init      initialize project state (.agent-sdlc/state.db)
+  status    list persisted tasks
+  task <id> show details for a single task
+  plan      generate PLAN.md from PRD.md or a task file
+  tasks     build and persist tasks from .agent-sdlc/plan.json
+  validate  run the configured build/test/lint commands
+  review    review the current changes with the configured engine
+  run       run [PLAN.md | --task TASK.md]  (normal entry point)
+  prompt    run an ad-hoc prompt through SOP (--capability CAP, --file PATH, --json)
+  commit    commit the current changes (needs --yes when the human gate is on)
+  pr        push a task branch and open a pull request (needs --yes)
+  mcp       serve tools over the Model Context Protocol (stdio)
+  report    print a concise summary of the latest run
+  retry     requeue a BLOCKED task so the next run retries it (--all for every task)
+  approve   record an approval decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively; --run continues after)
+  decline   record a decline decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively)
+  approval  show SOP's approval request (if any) for a task
+  approvals list every task waiting at an approval gate (--json)
+  reconcile reconcile an intentional PLAN change (--accept-changed <id>, --list-changed)
+  providers inspect configured provider runtimes and their models (--models)
+  eval      run a corpus of task files and report benchmark metrics
+  resume    report the next legal action for interrupted work
+  version   print the CLI version
+  help      show this help
+readiness artifact written: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt (state: READY)
+
+## S0: real SOP initialization
+state.db before init: absent
+command: (cd "/var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project" && "/Users/imhttran/go/bin/sop" init)
+initialization exit code: 0
+initialized .agent-sdlc/state.db
+state.db after init: exists (36864 bytes), created by real sop init
+Commit policy is enabled; only an applicable SOP-reported gate proves S1/S2 prerequisites.
+
+## Launch controller with SOP_CONTROLLER_PROJECTS=/var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Projects — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <h1>Projects</h1>
+
+            <div class="cards">
+
+                <a class="card" href="/projects/c2-009-dogfood">
+                    <div class="card-head">
+                        <h2>c2-009-dogfood</h2>
+                        <span class="pill state-idle">idle</span>
+                    </div>
+                    <div class="progress">
+                        <span style="width: 0%"></span>
+                    </div>
+                    <div class="muted small">
+                        0/0 tasks complete ·
+                        0%
+                    </div>
+                    <div class="counts">
+                        <span class="badge s-running"
+                            >0 running</span
+                        >
+                        <span class="badge s-ready">0 ready</span>
+                        <span class="badge s-planned"
+                            >0 planned</span
+                        >
+                        <span class="badge s-blocked"
+                            >0 blocked</span
+                        >
+                        <span class="badge s-failed"
+                            >0 fix required</span
+                        >
+                    </div>
+
+                </a>
+
+            </div>
+
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+controller up at http://127.0.0.1:8099 ; controller-reported project id: c2-009-dogfood
+
+## S1: start the plan through the CONTROLLER (POST /commands/start)
+-- controller POST /projects/c2-009-dogfood/commands/start -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop run · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/commands/run" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/commands/start (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop run · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+  <pre class="diag">Started idle plan (sop run); SOP selected the runnable task.</pre>
+
+</div>
+-- [after-start] controller GET /projects/c2-009-dogfood --
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>c2-009-dogfood — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <div class="crumbs">
+                <a href="/projects">Projects</a>
+                <span>/</span> c2-009-dogfood
+            </div>
+
+            <section class="hero">
+                <div class="hero-head">
+                    <h1>c2-009-dogfood</h1>
+                    <span class="pill state-complete"
+                        >complete</span
+                    >
+                </div>
+                <div class="progress big">
+                    <span
+                        style="width: 100%"
+                    ></span>
+                </div>
+                <div class="muted">
+                    1/1
+                    complete · 100% · plan
+                    PLAN.md
+                </div>
+                <div class="counts">
+
+                    <span class="badge s-completed"
+                        >1 complete</span
+                    >
+                    <span class="badge s-running"
+                        >0 running</span
+                    >
+                    <span class="badge s-ready"
+                        >0 ready</span
+                    >
+                    <span class="badge s-planned"
+                        >0 planned</span
+                    >
+                    <span class="badge s-blocked"
+                        >0 blocked</span
+                    >
+                    <span class="badge s-failed"
+                        >0 fix required</span
+                    >
+
+                </div>
+            </section>
+
+            <section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+
+
+            <section class="panel">
+                <div class="panel-head"><h2>Commands</h2></div>
+
+                <div class="actions">
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/validate"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button class="btn" hx-disabled-elt="this">Validate</button>
+                    </form>
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/review"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button class="btn" hx-disabled-elt="this">Review</button>
+                    </form>
+
+                    <p class="muted">
+                        Retry all blocked:
+                        <span class="badge s-unavailable">not run</span>
+                        <span class="small">No BLOCKED task currently has retry budget remaining.</span>
+                    </p>
+
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/reconcile"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button
+                            class="btn"
+                            hx-disabled-elt="this"
+                            title="Reconcile PLAN.md with the active plan (sop reconcile)"
+                        >
+                            Reconcile plan
+                        </button>
+                    </form>
+
+                </div>
+
+                <div id="cmd"></div>
+            </section>
+
+
+<section class="panel">
+  <div class="panel-head"><h2>Changed executed tasks</h2></div>
+
+
+  <p class="muted">SOP reports no changed executed tasks awaiting reconcile.</p>
+
+
+</section>
+
+
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Plan performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time for the active plan's run</span
+                    >
+                </div>
+
+
+<dl class="facts">
+  <div><dt>Plan</dt><dd><code>plan</code></dd></div>
+  <div><dt>Tasks measured</dt><dd>1</dd></div>
+  <div><dt>Total</dt><dd>10.3s</dd></div>
+</dl>
+
+
+
+<dl class="facts">
+  <div>
+    <dt>Agent</dt>
+    <dd>9.597s <span class="muted small">94% of measured</span></dd>
+  </div><div>
+    <dt>Validation</dt>
+    <dd>12ms <span class="muted small">0% of measured</span></dd>
+  </div><div>
+    <dt>Review</dt>
+    <dd>648ms <span class="muted small">6% of measured</span></dd>
+  </div>
+</dl>
+
+
+<h3>Operations</h3>
+<dl class="facts">
+  <div><dt>Agent calls</dt><dd>2</dd></div>
+
+  <div><dt>Validation runs</dt><dd>1</dd></div>
+
+  <div><dt>Review runs</dt><dd>1</dd></div>
+
+  <div><dt>Fix cycles</dt><dd>0</dd></div>
+
+</dl>
+
+<p class="muted small">
+  Aggregate SOP measured across the active plan's run. Read-only diagnostic
+  evidence; it never selects or orders tasks.
+</p>
+
+
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Tasks</h2></div>
+                <div
+                    id="tasks"
+                    hx-get="/projects/c2-009-dogfood/tasks"
+                    hx-trigger="every 3ss"
+                    hx-swap="innerHTML"
+                >
+
+<table class="tasks">
+    <thead>
+        <tr>
+            <th>Task</th>
+            <th>State</th>
+            <th>Stage</th>
+            <th>Recovery</th>
+            <th>Fix</th>
+            <th>Attempts</th>
+            <th>Updated</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+            <td class="task-title" data-label="Task">
+                <a href="/projects/c2-009-dogfood/tasks/T1">Write the dogfood record</a>
+                <div class="muted small">T1</div>
+
+            </td>
+            <td data-label="State">
+
+                <span class="badge s-completed">DONE</span>
+                <div class="muted small">LOCAL_DONE</div>
+
+                <div class="muted small">
+                    blocked by
+                </div>
+
+            </td>
+            <td data-label="Stage">
+                <span class="badge s-completed"
+                    >PASSED</span
+                >
+            </td>
+            <td data-label="Recovery">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Fix">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Attempts">
+                0/3
+            </td>
+            <td class="muted small" data-label="Updated">
+                just now
+            </td>
+        </tr>
+
+    </tbody>
+</table>
+
+
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Activity</h2></div>
+                <div
+                    id="activity"
+                    data-activity-live
+                    data-project="c2-009-dogfood"
+                    data-stream-url="/projects/c2-009-dogfood/activity/stream"
+                    data-window-url="/projects/c2-009-dogfood/activity/window"
+                    data-poll-ms="3000"
+                >
+                    <p class="muted">Loading…</p>
+                </div>
+            </section>
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+-- [gate] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+No unambiguous SOP-reported approve gate (task ids: none).
+NOT EXERCISED [S1]: no unambiguous applicable SOP approval gate after start (successful SOP command: 1); see terminal command output and decisions view
+
+## S2: applicable decline through the CONTROLLER
+-- [before-decline] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+No unambiguous SOP-reported decline gate (task ids: none).
+NOT EXERCISED [S2]: SOP exposes no unambiguous applicable decline gate; an already-approved gate is not a decline scenario
+
+## S3: intentional disposable-plan edit, then SOP-authoritative changed listing
+-- [changed-tasks] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <ul class="decisions-list">
+
+    <li class="decisions-item">
+      <div class="decisions-meta">
+        <a class="decisions-task" href="/projects/c2-009-dogfood/tasks/T1"
+          >T1</a
+        >
+        <span class="decisions-title">Write the dogfood record</span>
+        <span class="badge s-completed">PASSED</span>
+      </div>
+
+      <div class="decisions-actions">
+
+        <form class="inline decisions-form" hx-post="/projects/c2-009-dogfood/tasks/T1/commands/accept-changed" hx-target="#decisions-cmd" hx-swap="innerHTML">
+          <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+          <button class="btn" hx-disabled-elt="this" title="sop reconcile --accept-changed T1">Accept changed</button>
+        </form>
+
+      </div>
+    </li>
+
+  </ul>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+SOP lists T1 as changed-executed; controller per-task acceptance delegates to real SOP.
+-- controller POST /projects/c2-009-dogfood/tasks/T1/commands/accept-changed -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop accept-changed:T1 · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+  <div class="muted small">task T1 · stage PASSED</div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/tasks/T1/commands/accept-changed" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/tasks/T1/commands/accept-changed (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop accept-changed:T1 · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+  <div class="muted small">task T1 · stage PASSED</div>
+
+
+
+
+</div>
+-- [after-accept] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+-- controller POST /projects/c2-009-dogfood/commands/reconcile -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop reconcile · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/commands/reconcile" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/commands/reconcile (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop reconcile · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+  <pre class="diag">Reconciled PLAN.md
+Plan ID: plan
+
+The requested plan matches the recorded plan.
+  unchanged: 1
+</pre>
+
+</div>
+-- [project-final] controller GET /projects/c2-009-dogfood --
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>c2-009-dogfood — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <div class="crumbs">
+                <a href="/projects">Projects</a>
+                <span>/</span> c2-009-dogfood
+            </div>
+
+            <section class="hero">
+                <div class="hero-head">
+                    <h1>c2-009-dogfood</h1>
+                    <span class="pill state-complete"
+                        >complete</span
+                    >
+                </div>
+                <div class="progress big">
+                    <span
+                        style="width: 100%"
+                    ></span>
+                </div>
+                <div class="muted">
+                    1/1
+                    complete · 100% · plan
+                    PLAN.md
+                </div>
+                <div class="counts">
+
+                    <span class="badge s-completed"
+                        >1 complete</span
+                    >
+                    <span class="badge s-running"
+                        >0 running</span
+                    >
+                    <span class="badge s-ready"
+                        >0 ready</span
+                    >
+                    <span class="badge s-planned"
+                        >0 planned</span
+                    >
+                    <span class="badge s-blocked"
+                        >0 blocked</span
+                    >
+                    <span class="badge s-failed"
+                        >0 fix required</span
+                    >
+
+                </div>
+            </section>
+
+            <section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+
+
+            <section class="panel">
+                <div class="panel-head"><h2>Commands</h2></div>
+
+                <div class="actions">
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/validate"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button class="btn" hx-disabled-elt="this">Validate</button>
+                    </form>
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/review"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button class="btn" hx-disabled-elt="this">Review</button>
+                    </form>
+
+                    <p class="muted">
+                        Retry all blocked:
+                        <span class="badge s-unavailable">not run</span>
+                        <span class="small">No BLOCKED task currently has retry budget remaining.</span>
+                    </p>
+
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/reconcile"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="76108f86bf7212512272cf6df8e74f4bf1676f4527f598753012972002eda060" />
+                        <button
+                            class="btn"
+                            hx-disabled-elt="this"
+                            title="Reconcile PLAN.md with the active plan (sop reconcile)"
+                        >
+                            Reconcile plan
+                        </button>
+                    </form>
+
+                </div>
+
+                <div id="cmd"></div>
+            </section>
+
+
+<section class="panel">
+  <div class="panel-head"><h2>Changed executed tasks</h2></div>
+
+
+  <p class="muted">SOP reports no changed executed tasks awaiting reconcile.</p>
+
+
+</section>
+
+
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Plan performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time for the active plan's run</span
+                    >
+                </div>
+
+
+<dl class="facts">
+  <div><dt>Plan</dt><dd><code>plan</code></dd></div>
+  <div><dt>Tasks measured</dt><dd>1</dd></div>
+  <div><dt>Total</dt><dd>10.3s</dd></div>
+</dl>
+
+
+
+<dl class="facts">
+  <div>
+    <dt>Agent</dt>
+    <dd>9.597s <span class="muted small">94% of measured</span></dd>
+  </div><div>
+    <dt>Validation</dt>
+    <dd>12ms <span class="muted small">0% of measured</span></dd>
+  </div><div>
+    <dt>Review</dt>
+    <dd>648ms <span class="muted small">6% of measured</span></dd>
+  </div>
+</dl>
+
+
+<h3>Operations</h3>
+<dl class="facts">
+  <div><dt>Agent calls</dt><dd>2</dd></div>
+
+  <div><dt>Validation runs</dt><dd>1</dd></div>
+
+  <div><dt>Review runs</dt><dd>1</dd></div>
+
+  <div><dt>Fix cycles</dt><dd>0</dd></div>
+
+</dl>
+
+<p class="muted small">
+  Aggregate SOP measured across the active plan's run. Read-only diagnostic
+  evidence; it never selects or orders tasks.
+</p>
+
+
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Tasks</h2></div>
+                <div
+                    id="tasks"
+                    hx-get="/projects/c2-009-dogfood/tasks"
+                    hx-trigger="every 3ss"
+                    hx-swap="innerHTML"
+                >
+
+<table class="tasks">
+    <thead>
+        <tr>
+            <th>Task</th>
+            <th>State</th>
+            <th>Stage</th>
+            <th>Recovery</th>
+            <th>Fix</th>
+            <th>Attempts</th>
+            <th>Updated</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+            <td class="task-title" data-label="Task">
+                <a href="/projects/c2-009-dogfood/tasks/T1">Write the dogfood record</a>
+                <div class="muted small">T1</div>
+
+            </td>
+            <td data-label="State">
+
+                <span class="badge s-completed">DONE</span>
+                <div class="muted small">LOCAL_DONE</div>
+
+                <div class="muted small">
+                    blocked by
+                </div>
+
+            </td>
+            <td data-label="Stage">
+                <span class="badge s-completed"
+                    >PASSED</span
+                >
+            </td>
+            <td data-label="Recovery">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Fix">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Attempts">
+                0/3
+            </td>
+            <td class="muted small" data-label="Updated">
+                just now
+            </td>
+        </tr>
+
+    </tbody>
+</table>
+
+
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Activity</h2></div>
+                <div
+                    id="activity"
+                    data-activity-live
+                    data-project="c2-009-dogfood"
+                    data-stream-url="/projects/c2-009-dogfood/activity/stream"
+                    data-window-url="/projects/c2-009-dogfood/activity/window"
+                    data-poll-ms="3000"
+                >
+                    <p class="muted">Loading…</p>
+                </div>
+            </section>
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+PASS [S3]: SOP listed changed-executed T1, per-task acceptance updated SOP's plan, controller reflected removal and reconciliation completed
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project/.agent-sdlc/plan.meta.json --
+{
+  "source": "PLAN.md",
+  "source_kind": "plan",
+  "source_sha256": "260681bf60af8c9b9409c1fbc9e168f6edaee0dd064843eeda11a2292bc69bd4",
+  "plan_id": "plan",
+  "generated_at": "2026-10-03T16:25:50.270684Z",
+  "reconciled_tasks": [
+    "T1"
+  ]
+}
+
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project/.agent-sdlc/plan.json --
+{
+  "project": "c2-009-dogfood",
+  "summary": "Exercise a minimal real SOP lifecycle in a disposable repository.",
+  "stages": [
+    {
+      "id": "T1",
+      "title": "Write the dogfood record",
+      "objective": "Create DOGFOOD.txt containing exactly one line: C2-009 real SOP dogfood.\nKeep all existing project files and the validation command intact.",
+      "dependencies": null,
+      "deliverables": [
+        "DOGFOOD.txt"
+      ],
+      "acceptance_criteria": [
+        "sh check.sh passes.",
+        "DOGFOOD.txt contains no additional lines."
+      ]
+    }
+  ]
+}
+
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/project/.agent-sdlc/runs/T1/state.json --
+{
+  "id": "T1",
+  "stage": "PASSED",
+  "created_at": "2026-10-03T16:25:39.584909Z",
+  "updated_at": "2026-10-03T16:25:49.883648Z"
+}
+
+
+===================================================================
+ Run finished with result exit code 1 (0 requires S1/S2/S3 PASS).
+ Transcript: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa/transcript.log
+ Readiness: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ Scenario record: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+-- controller process log --
+2026/10/03 11:25:39 SOP Controller listening on http://127.0.0.1:8099 (1 project(s), poll 3s, attention 1s)
+2026/10/03 11:25:39 GET /healthz 0s
+2026/10/03 11:25:39 GET /healthz 0s
+2026/10/03 11:25:39 GET /projects 14ms
+2026/10/03 11:25:39 POST /projects/c2-009-dogfood/commands/start 14ms
+2026/10/03 11:25:39 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:39 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:25:39 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 29ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 29ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:40 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 27ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 18ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:41 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 30ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 29ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:42 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 28ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:43 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:44 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:45 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:46 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 29ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:47 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 27ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 27ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:48 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:25:49 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood 31ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/decisions 25ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/decisions 23ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/decisions 24ms
+2026/10/03 11:25:50 POST /projects/c2-009-dogfood/tasks/T1/commands/accept-changed 11ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/tasks/T1/commands/accept-changed 9ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/decisions 26ms
+2026/10/03 11:25:50 POST /projects/c2-009-dogfood/commands/reconcile 27ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood/commands/reconcile 16ms
+2026/10/03 11:25:50 GET /projects/c2-009-dogfood 24ms
+-- scenario results --
+S1	NOT EXERCISED	no unambiguous applicable SOP approval gate after start (successful SOP command: 1); see terminal command output and decisions view
+S2	NOT EXERCISED	SOP exposes no unambiguous applicable decline gate; an already-approved gate is not a decline scenario
+S3	PASS	SOP listed changed-executed T1, per-task acceptance updated SOP's plan, controller reflected removal and reconciliation completed
+kept: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.S1Zvfa
+===================================================================
+ C2-009 dogfood against real agentic-sop (CONTROLLER-driven)
+ repo:        /Users/imhttran/agentic-workspace/projects/sop-controller
+ recorded UTC: 2026-10-03T16:30:39Z
+ controller revision: 07fbc3af3d0558427144c63bff380f8503b74ebb (working-tree harness)
+ disposable:  /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project
+ transcript:  /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/transcript.log
+ readiness:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ scenarios:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+
+## S0: sop binary readiness
+resolved sop: /Users/imhttran/go/bin/sop
+-- /Users/imhttran/go/bin/sop version --
+sop dev
+-- binary build metadata --
+/Users/imhttran/go/bin/sop: go1.27.1
+	path	github.com/imhttran/agentic-sop/cmd/sop
+	mod	github.com/imhttran/agentic-sop	v0.0.0-20261002041210-d0af5a475e1b+dirty
+	dep	github.com/dustin/go-humanize	v1.0.1	h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
+	dep	github.com/google/uuid	v1.6.0	h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+	dep	github.com/mattn/go-isatty	v0.0.24	h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
+	dep	github.com/ncruces/go-strftime	v1.0.0	h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
+	dep	github.com/remyoudompheng/bigfft	v0.0.0-20230129092748-24d4a6f8daec	h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
+	dep	golang.org/x/sys	v0.47.0	h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+	dep	gopkg.in/yaml.v3	v3.0.1	h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+	dep	modernc.org/libc	v1.75.7	h1:o3DTP9/0p9pKmY2WCKQaySW6wIiZhNM7wc2lUoyhfew=
+	dep	modernc.org/mathutil	v1.7.1	h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=
+	dep	modernc.org/memory	v1.12.1	h1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=
+	dep	modernc.org/sqlite	v1.59.0	h1:X1es1GpqBlS/5T+vbM4HLUdaa8OtQx468DF2vrx+38A=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	GOARM64=v8.0
+	build	vcs=git
+	build	vcs.revision=d0af5a475e1be7a89c58571923cdc02896e15990
+	build	vcs.time=2026-10-02T04:12:10Z
+	build	vcs.modified=true
+-- sop --help --
+sop — a standard operating procedure for agentic software development
+
+Usage:
+  sop <command> [arguments]
+
+Commands:
+  init      initialize project state (.agent-sdlc/state.db)
+  status    list persisted tasks
+  task <id> show details for a single task
+  plan      generate PLAN.md from PRD.md or a task file
+  tasks     build and persist tasks from .agent-sdlc/plan.json
+  validate  run the configured build/test/lint commands
+  review    review the current changes with the configured engine
+  run       run [PLAN.md | --task TASK.md]  (normal entry point)
+  prompt    run an ad-hoc prompt through SOP (--capability CAP, --file PATH, --json)
+  commit    commit the current changes (needs --yes when the human gate is on)
+  pr        push a task branch and open a pull request (needs --yes)
+  mcp       serve tools over the Model Context Protocol (stdio)
+  report    print a concise summary of the latest run
+  retry     requeue a BLOCKED task so the next run retries it (--all for every task)
+  approve   record an approval decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively; --run continues after)
+  decline   record a decline decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively)
+  approval  show SOP's approval request (if any) for a task
+  approvals list every task waiting at an approval gate (--json)
+  reconcile reconcile an intentional PLAN change (--accept-changed <id>, --list-changed)
+  providers inspect configured provider runtimes and their models (--models)
+  eval      run a corpus of task files and report benchmark metrics
+  resume    report the next legal action for interrupted work
+  version   print the CLI version
+  help      show this help
+readiness artifact written: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt (state: READY)
+
+## S0: real SOP initialization
+state.db before init: absent
+command: (cd "/var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project" && "/Users/imhttran/go/bin/sop" init)
+initialization exit code: 0
+initialized .agent-sdlc/state.db
+state.db after init: exists (36864 bytes), created by real sop init
+Commit policy is enabled; only an applicable SOP-reported gate proves S1/S2 prerequisites.
+
+## Launch controller with SOP_CONTROLLER_PROJECTS=/var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Projects — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <h1>Projects</h1>
+
+            <div class="cards">
+
+                <a class="card" href="/projects/c2-009-dogfood">
+                    <div class="card-head">
+                        <h2>c2-009-dogfood</h2>
+                        <span class="pill state-idle">idle</span>
+                    </div>
+                    <div class="progress">
+                        <span style="width: 0%"></span>
+                    </div>
+                    <div class="muted small">
+                        0/0 tasks complete ·
+                        0%
+                    </div>
+                    <div class="counts">
+                        <span class="badge s-running"
+                            >0 running</span
+                        >
+                        <span class="badge s-ready">0 ready</span>
+                        <span class="badge s-planned"
+                            >0 planned</span
+                        >
+                        <span class="badge s-blocked"
+                            >0 blocked</span
+                        >
+                        <span class="badge s-failed"
+                            >0 fix required</span
+                        >
+                    </div>
+
+                </a>
+
+            </div>
+
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+controller up at http://127.0.0.1:8099 ; controller-reported project id: c2-009-dogfood
+
+## S1: start the plan through the CONTROLLER (POST /commands/start)
+-- controller POST /projects/c2-009-dogfood/commands/start -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop run · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/commands/run" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/commands/start (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop run · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+  <pre class="diag">Started idle plan (sop run); SOP selected the runnable task.</pre>
+
+</div>
+-- [after-start] controller GET /projects/c2-009-dogfood --
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>c2-009-dogfood — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <div class="crumbs">
+                <a href="/projects">Projects</a>
+                <span>/</span> c2-009-dogfood
+            </div>
+
+            <section class="hero">
+                <div class="hero-head">
+                    <h1>c2-009-dogfood</h1>
+                    <span class="pill state-complete"
+                        >complete</span
+                    >
+                </div>
+                <div class="progress big">
+                    <span
+                        style="width: 100%"
+                    ></span>
+                </div>
+                <div class="muted">
+                    1/1
+                    complete · 100% · plan
+                    PLAN.md
+                </div>
+                <div class="counts">
+
+                    <span class="badge s-completed"
+                        >1 complete</span
+                    >
+                    <span class="badge s-running"
+                        >0 running</span
+                    >
+                    <span class="badge s-ready"
+                        >0 ready</span
+                    >
+                    <span class="badge s-planned"
+                        >0 planned</span
+                    >
+                    <span class="badge s-blocked"
+                        >0 blocked</span
+                    >
+                    <span class="badge s-failed"
+                        >0 fix required</span
+                    >
+
+                </div>
+            </section>
+
+            <section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+
+
+            <section class="panel">
+                <div class="panel-head"><h2>Commands</h2></div>
+
+                <div class="actions">
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/validate"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button class="btn" hx-disabled-elt="this">Validate</button>
+                    </form>
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/review"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button class="btn" hx-disabled-elt="this">Review</button>
+                    </form>
+
+                    <p class="muted">
+                        Retry all blocked:
+                        <span class="badge s-unavailable">not run</span>
+                        <span class="small">No BLOCKED task currently has retry budget remaining.</span>
+                    </p>
+
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/reconcile"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button
+                            class="btn"
+                            hx-disabled-elt="this"
+                            title="Reconcile PLAN.md with the active plan (sop reconcile)"
+                        >
+                            Reconcile plan
+                        </button>
+                    </form>
+
+                </div>
+
+                <div id="cmd"></div>
+            </section>
+
+
+<section class="panel">
+  <div class="panel-head"><h2>Changed executed tasks</h2></div>
+
+
+  <p class="muted">SOP reports no changed executed tasks awaiting reconcile.</p>
+
+
+</section>
+
+
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Plan performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time for the active plan's run</span
+                    >
+                </div>
+
+
+<dl class="facts">
+  <div><dt>Plan</dt><dd><code>plan</code></dd></div>
+  <div><dt>Tasks measured</dt><dd>1</dd></div>
+  <div><dt>Total</dt><dd>11.703s</dd></div>
+</dl>
+
+
+
+<dl class="facts">
+  <div>
+    <dt>Agent</dt>
+    <dd>9.934s <span class="muted small">85% of measured</span></dd>
+  </div><div>
+    <dt>Validation</dt>
+    <dd>8ms <span class="muted small">0% of measured</span></dd>
+  </div><div>
+    <dt>Review</dt>
+    <dd>1.727s <span class="muted small">15% of measured</span></dd>
+  </div>
+</dl>
+
+
+<h3>Operations</h3>
+<dl class="facts">
+  <div><dt>Agent calls</dt><dd>2</dd></div>
+
+  <div><dt>Validation runs</dt><dd>1</dd></div>
+
+  <div><dt>Review runs</dt><dd>1</dd></div>
+
+  <div><dt>Fix cycles</dt><dd>0</dd></div>
+
+</dl>
+
+<p class="muted small">
+  Aggregate SOP measured across the active plan's run. Read-only diagnostic
+  evidence; it never selects or orders tasks.
+</p>
+
+
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Tasks</h2></div>
+                <div
+                    id="tasks"
+                    hx-get="/projects/c2-009-dogfood/tasks"
+                    hx-trigger="every 3ss"
+                    hx-swap="innerHTML"
+                >
+
+<table class="tasks">
+    <thead>
+        <tr>
+            <th>Task</th>
+            <th>State</th>
+            <th>Stage</th>
+            <th>Recovery</th>
+            <th>Fix</th>
+            <th>Attempts</th>
+            <th>Updated</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+            <td class="task-title" data-label="Task">
+                <a href="/projects/c2-009-dogfood/tasks/T1">Write the dogfood record</a>
+                <div class="muted small">T1</div>
+
+            </td>
+            <td data-label="State">
+
+                <span class="badge s-completed">DONE</span>
+                <div class="muted small">LOCAL_DONE</div>
+
+                <div class="muted small">
+                    blocked by
+                </div>
+
+            </td>
+            <td data-label="Stage">
+                <span class="badge s-completed"
+                    >PASSED</span
+                >
+            </td>
+            <td data-label="Recovery">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Fix">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Attempts">
+                0/3
+            </td>
+            <td class="muted small" data-label="Updated">
+                just now
+            </td>
+        </tr>
+
+    </tbody>
+</table>
+
+
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Activity</h2></div>
+                <div
+                    id="activity"
+                    data-activity-live
+                    data-project="c2-009-dogfood"
+                    data-stream-url="/projects/c2-009-dogfood/activity/stream"
+                    data-window-url="/projects/c2-009-dogfood/activity/window"
+                    data-poll-ms="3000"
+                >
+                    <p class="muted">Loading…</p>
+                </div>
+            </section>
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+-- [gate] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+No unambiguous SOP-reported approve gate (task ids: none).
+NOT EXERCISED [S1]: no unambiguous applicable SOP approval gate after start; SOP T1 stage: PASSED, successful command: 1; commit policy alone is not an approval request
+
+## S2: applicable decline through the CONTROLLER
+-- [before-decline] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+No unambiguous SOP-reported decline gate (task ids: none).
+NOT EXERCISED [S2]: SOP exposes no unambiguous applicable decline gate; an already-approved gate is not a decline scenario
+
+## S3: intentional disposable-plan edit, then SOP-authoritative changed listing
+-- [changed-tasks] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <ul class="decisions-list">
+
+    <li class="decisions-item">
+      <div class="decisions-meta">
+        <a class="decisions-task" href="/projects/c2-009-dogfood/tasks/T1"
+          >T1</a
+        >
+        <span class="decisions-title">Write the dogfood record</span>
+        <span class="badge s-completed">PASSED</span>
+      </div>
+
+      <div class="decisions-actions">
+
+        <form class="inline decisions-form" hx-post="/projects/c2-009-dogfood/tasks/T1/commands/accept-changed" hx-target="#decisions-cmd" hx-swap="innerHTML">
+          <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+          <button class="btn" hx-disabled-elt="this" title="sop reconcile --accept-changed T1">Accept changed</button>
+        </form>
+
+      </div>
+    </li>
+
+  </ul>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+SOP lists T1 as changed-executed; controller per-task acceptance delegates to real SOP.
+-- controller POST /projects/c2-009-dogfood/tasks/T1/commands/accept-changed -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop accept-changed:T1 · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+  <div class="muted small">task T1 · stage PASSED</div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/tasks/T1/commands/accept-changed" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/tasks/T1/commands/accept-changed (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop accept-changed:T1 · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+  <div class="muted small">task T1 · stage PASSED</div>
+
+
+
+
+</div>
+-- [after-accept] controller GET /projects/c2-009-dogfood/decisions --
+<section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+-- controller POST /projects/c2-009-dogfood/commands/reconcile -> HTTP 200 --
+
+
+<div class="cmd cmd-running">
+  <div class="cmd-head">
+    <span class="badge s-running">sop reconcile · running</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+
+
+  <div hx-get="/projects/c2-009-dogfood/commands/reconcile" hx-trigger="load delay:1s" hx-swap="outerHTML"></div>
+
+</div>
+
+
+-- controller GET /projects/c2-009-dogfood/commands/reconcile (terminal) --
+
+
+<div class="cmd cmd-done">
+  <div class="cmd-head">
+    <span class="badge s-completed">sop reconcile · done</span>
+    <span class="muted small">started just now</span>
+  </div>
+
+
+  <pre class="diag">Reconciled PLAN.md
+Plan ID: plan
+
+The requested plan matches the recorded plan.
+  unchanged: 1
+</pre>
+
+</div>
+-- [project-final] controller GET /projects/c2-009-dogfood --
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>c2-009-dogfood — SOP Controller</title>
+        <link rel="stylesheet" href="/static/app.css" />
+    </head>
+    <body>
+        <header class="topbar">
+  <a class="brand" href="/projects">SOP Controller</a>
+  <nav class="nav">
+    <a href="/projects" class="active">Projects</a>
+    <a href="/discovery" class="">Discovery</a>
+  </nav>
+</header>
+
+        <main class="wrap">
+            <div class="crumbs">
+                <a href="/projects">Projects</a>
+                <span>/</span> c2-009-dogfood
+            </div>
+
+            <section class="hero">
+                <div class="hero-head">
+                    <h1>c2-009-dogfood</h1>
+                    <span class="pill state-complete"
+                        >complete</span
+                    >
+                </div>
+                <div class="progress big">
+                    <span
+                        style="width: 100%"
+                    ></span>
+                </div>
+                <div class="muted">
+                    1/1
+                    complete · 100% · plan
+                    PLAN.md
+                </div>
+                <div class="counts">
+
+                    <span class="badge s-completed"
+                        >1 complete</span
+                    >
+                    <span class="badge s-running"
+                        >0 running</span
+                    >
+                    <span class="badge s-ready"
+                        >0 ready</span
+                    >
+                    <span class="badge s-planned"
+                        >0 planned</span
+                    >
+                    <span class="badge s-blocked"
+                        >0 blocked</span
+                    >
+                    <span class="badge s-failed"
+                        >0 fix required</span
+                    >
+
+                </div>
+            </section>
+
+            <section class="panel decisions" id="decisions">
+  <div class="panel-head"><h2>Human decisions</h2></div>
+
+  <h3 class="decisions-sub">Approval gates</h3>
+
+  <p class="muted">
+    Approval gates: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no applicable approval gate for this project.</span>
+  </p>
+
+
+  <h3 class="decisions-sub">Changed executed tasks pending accept</h3>
+
+  <p class="muted">
+    Changed executed tasks: <span class="badge s-unavailable">not run</span>
+    <span class="small">SOP reports no changed executed tasks awaiting accept.</span>
+  </p>
+
+
+  <div id="decisions-cmd"></div>
+  <p class="muted small">
+    Every decision here is a POST delegated to SOP's own application operation,
+    which validates at command time. Read state only is rendered on GET; no
+    command is started by viewing this panel.
+  </p>
+</section>
+
+
+            <section class="panel">
+                <div class="panel-head"><h2>Commands</h2></div>
+
+                <div class="actions">
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/validate"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button class="btn" hx-disabled-elt="this">Validate</button>
+                    </form>
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/review"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button class="btn" hx-disabled-elt="this">Review</button>
+                    </form>
+
+                    <p class="muted">
+                        Retry all blocked:
+                        <span class="badge s-unavailable">not run</span>
+                        <span class="small">No BLOCKED task currently has retry budget remaining.</span>
+                    </p>
+
+
+                    <form
+                        class="inline"
+                        hx-post="/projects/c2-009-dogfood/commands/reconcile"
+                        hx-target="#cmd"
+                        hx-swap="innerHTML"
+                    >
+                        <input type="hidden" name="csrf" value="661aca86fb6b5e0b84b2ae463882e5663244580c253e460c03dc0a81fceb91c0" />
+                        <button
+                            class="btn"
+                            hx-disabled-elt="this"
+                            title="Reconcile PLAN.md with the active plan (sop reconcile)"
+                        >
+                            Reconcile plan
+                        </button>
+                    </form>
+
+                </div>
+
+                <div id="cmd"></div>
+            </section>
+
+
+<section class="panel">
+  <div class="panel-head"><h2>Changed executed tasks</h2></div>
+
+
+  <p class="muted">SOP reports no changed executed tasks awaiting reconcile.</p>
+
+
+</section>
+
+
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Plan performance</h2>
+                    <span class="muted small"
+                        >SOP-measured time for the active plan's run</span
+                    >
+                </div>
+
+
+<dl class="facts">
+  <div><dt>Plan</dt><dd><code>plan</code></dd></div>
+  <div><dt>Tasks measured</dt><dd>1</dd></div>
+  <div><dt>Total</dt><dd>11.703s</dd></div>
+</dl>
+
+
+
+<dl class="facts">
+  <div>
+    <dt>Agent</dt>
+    <dd>9.934s <span class="muted small">85% of measured</span></dd>
+  </div><div>
+    <dt>Validation</dt>
+    <dd>8ms <span class="muted small">0% of measured</span></dd>
+  </div><div>
+    <dt>Review</dt>
+    <dd>1.727s <span class="muted small">15% of measured</span></dd>
+  </div>
+</dl>
+
+
+<h3>Operations</h3>
+<dl class="facts">
+  <div><dt>Agent calls</dt><dd>2</dd></div>
+
+  <div><dt>Validation runs</dt><dd>1</dd></div>
+
+  <div><dt>Review runs</dt><dd>1</dd></div>
+
+  <div><dt>Fix cycles</dt><dd>0</dd></div>
+
+</dl>
+
+<p class="muted small">
+  Aggregate SOP measured across the active plan's run. Read-only diagnostic
+  evidence; it never selects or orders tasks.
+</p>
+
+
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Tasks</h2></div>
+                <div
+                    id="tasks"
+                    hx-get="/projects/c2-009-dogfood/tasks"
+                    hx-trigger="every 3ss"
+                    hx-swap="innerHTML"
+                >
+
+<table class="tasks">
+    <thead>
+        <tr>
+            <th>Task</th>
+            <th>State</th>
+            <th>Stage</th>
+            <th>Recovery</th>
+            <th>Fix</th>
+            <th>Attempts</th>
+            <th>Updated</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr>
+            <td class="task-title" data-label="Task">
+                <a href="/projects/c2-009-dogfood/tasks/T1">Write the dogfood record</a>
+                <div class="muted small">T1</div>
+
+            </td>
+            <td data-label="State">
+
+                <span class="badge s-completed">DONE</span>
+                <div class="muted small">LOCAL_DONE</div>
+
+                <div class="muted small">
+                    blocked by
+                </div>
+
+            </td>
+            <td data-label="Stage">
+                <span class="badge s-completed"
+                    >PASSED</span
+                >
+            </td>
+            <td data-label="Recovery">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Fix">
+                <span class="muted">—</span>
+            </td>
+            <td class="muted" data-label="Attempts">
+                0/3
+            </td>
+            <td class="muted small" data-label="Updated">
+                just now
+            </td>
+        </tr>
+
+    </tbody>
+</table>
+
+
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2>Activity</h2></div>
+                <div
+                    id="activity"
+                    data-activity-live
+                    data-project="c2-009-dogfood"
+                    data-stream-url="/projects/c2-009-dogfood/activity/stream"
+                    data-window-url="/projects/c2-009-dogfood/activity/window"
+                    data-poll-ms="3000"
+                >
+                    <p class="muted">Loading…</p>
+                </div>
+            </section>
+        </main>
+        <script src="/static/htmx.min.js" defer></script>
+<script src="/static/activity-live.js" defer></script>
+
+    </body>
+</html>
+PASS [S3]: SOP listed changed-executed T1, per-task acceptance updated SOP's plan, controller reflected removal and reconciliation completed
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project/.agent-sdlc/plan.meta.json --
+{
+  "source": "PLAN.md",
+  "source_kind": "plan",
+  "source_sha256": "260681bf60af8c9b9409c1fbc9e168f6edaee0dd064843eeda11a2292bc69bd4",
+  "plan_id": "plan",
+  "generated_at": "2026-10-03T16:30:53.196986Z",
+  "reconciled_tasks": [
+    "T1"
+  ]
+}
+
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project/.agent-sdlc/plan.json --
+{
+  "project": "c2-009-dogfood",
+  "summary": "Exercise a minimal real SOP lifecycle in a disposable repository.",
+  "stages": [
+    {
+      "id": "T1",
+      "title": "Write the dogfood record",
+      "objective": "Create DOGFOOD.txt containing exactly one line: C2-009 real SOP dogfood.\nKeep all existing project files and the validation command intact.",
+      "dependencies": null,
+      "deliverables": [
+        "DOGFOOD.txt"
+      ],
+      "acceptance_criteria": [
+        "sh check.sh passes.",
+        "DOGFOOD.txt contains no additional lines."
+      ]
+    }
+  ]
+}
+
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project/.agent-sdlc/runs/T1/state.json --
+{
+  "id": "T1",
+  "stage": "PASSED",
+  "created_at": "2026-10-03T16:30:41.029127Z",
+  "updated_at": "2026-10-03T16:30:52.73127Z"
+}
+
+-- SOP-produced evidence: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/project/.agent-sdlc/runs/T1/report.json --
+{
+  "id": "T1",
+  "stage": "PASSED",
+  "provider": "ollama",
+  "review_engine": "self",
+  "decision": "PASS",
+  "reasons": [
+    "all required checks passed"
+  ],
+  "fix_cycles": 0,
+  "execution_mode": "",
+  "verified_first": false,
+  "validation": [
+    {
+      "Category": "UNIT_TEST",
+      "Command": "sh check.sh",
+      "ExitCode": 0,
+      "Stdout": "",
+      "Stderr": "",
+      "Duration": 8727041,
+      "Status": "PASS"
+    }
+  ],
+  "findings": [],
+  "performance": {
+    "id": "T1",
+    "total_ms": 11701,
+    "stages_ms": {
+      "implement": 2578,
+      "plan": 7356,
+      "review": 1727,
+      "validation": 8
+    },
+    "validation_ms": {
+      "test": 8
+    },
+    "counts": {
+      "agent_calls": 2,
+      "agent_calls_avoided": 0,
+      "validation_runs": 1,
+      "validation_reused": 0,
+      "review_runs": 1,
+      "review_reused": 0,
+      "fix_cycles": 0,
+      "plan_repairs": 0
+    }
+  },
+  "generated_at": "2026-10-03T16:30:52.731512Z"
+}
+
+
+===================================================================
+ Run finished with result exit code 1 (0 requires S1/S2/S3 PASS).
+ Transcript: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY/transcript.log
+ Readiness: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ Scenario record: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+-- controller process log --
+2026/10/03 11:30:40 SOP Controller listening on http://127.0.0.1:8099 (1 project(s), poll 3s, attention 1s)
+2026/10/03 11:30:40 GET /healthz 0s
+2026/10/03 11:30:40 GET /healthz 0s
+2026/10/03 11:30:40 GET /projects 11ms
+2026/10/03 11:30:41 POST /projects/c2-009-dogfood/commands/start 10ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:41 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 30ms
+2026/10/03 11:30:42 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:43 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:44 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:45 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:30:46 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 26ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:47 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 16ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 20ms
+2026/10/03 11:30:48 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:49 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 25ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 28ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 23ms
+2026/10/03 11:30:50 GET /projects/c2-009-dogfood/commands/start 24ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 17ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 27ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:51 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 21ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 22ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/commands/start 19ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood 28ms
+2026/10/03 11:30:52 GET /projects/c2-009-dogfood/decisions 26ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood/decisions 27ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood/decisions 30ms
+2026/10/03 11:30:53 POST /projects/c2-009-dogfood/tasks/T1/commands/accept-changed 10ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood/tasks/T1/commands/accept-changed 10ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood/decisions 29ms
+2026/10/03 11:30:53 POST /projects/c2-009-dogfood/commands/reconcile 28ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood/commands/reconcile 17ms
+2026/10/03 11:30:53 GET /projects/c2-009-dogfood 26ms
+-- scenario results --
+S1	NOT EXERCISED	no unambiguous applicable SOP approval gate after start; SOP T1 stage: PASSED, successful command: 1; commit policy alone is not an approval request
+S2	NOT EXERCISED	SOP exposes no unambiguous applicable decline gate; an already-approved gate is not a decline scenario
+S3	PASS	SOP listed changed-executed T1, per-task acceptance updated SOP's plan, controller reflected removal and reconciliation completed
+kept: /var/folders/rr/445xs9c92qndk2cmdsbyry6h0000gn/T//c2-009-dogfood.3BYSXY
+
+===================================================================
+PRESERVED BASELINE SNAPSHOT (captured before this harness fix)
+The transcript prefix changed during this task; this older evidence is
+retained separately. It is not the initialized real-SOP run recorded above.
+===================================================================
+===================================================================
+ C2-009 dogfood against real agentic-sop (CONTROLLER-driven)
+ repo:        /Users/imhttran/agentic-workspace/projects/sop-controller
+ disposable:  c2-009-dogfood.th8DCS/project
+ transcript:  c2-009-dogfood.th8DCS/transcript.log
+ readiness:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt
+ scenarios:   /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-scenarios.txt
+===================================================================
+
+## S0: sop binary readiness
+resolved sop: /Users/imhttran/go/bin/sop
+-- sop --version --
+(no --version; continuing)
+unknown command: --version
+run `sop --help` for usage
+-- sop --help --
+sop — a standard operating procedure for agentic software development
+
+Usage:
+  sop <command> [arguments]
+
+Commands:
+  init      initialize project state (.agent-sdlc/state.db)
+  status    list persisted tasks
+  task <id> show details for a single task
+  plan      generate PLAN.md from PRD.md or a task file
+  tasks     build and persist tasks from .agent-sdlc/plan.json
+  validate  run the configured build/test/lint commands
+  review    review the current changes with the configured engine
+  run       run [PLAN.md | --task TASK.md]  (normal entry point)
+  prompt    run an ad-hoc prompt through SOP (--capability CAP, --file PATH, --json)
+  commit    commit the current changes (needs --yes when the human gate is on)
+  pr        push a task branch and open a pull request (needs --yes)
+  mcp       serve tools over the Model Context Protocol (stdio)
+  report    print a concise summary of the latest run
+  retry     requeue a BLOCKED task so the next run retries it (--all for every task)
+  approve   record an approval decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively; --run continues after)
+  decline   record a decline decision on a task's active human approval gate
+            (no <task-id> or --select chooses interactively)
+  approval  show SOP's approval request (if any) for a task
+  approvals list every task waiting at an approval gate (--json)
+  reconcile reconcile an intentional PLAN change (--accept-changed <id>, --list-changed)
+  providers inspect configured provider runtimes and their models (--models)
+  eval      run a corpus of task files and report benchmark metrics
+  resume    report the next legal action for interrupted work
+  version   print the CLI version
+  help      show this help
+readiness artifact written: /Users/imhttran/agentic-workspace/projects/sop-controller/.run/c2-009-readiness.txt (state: READY)
+
+## S0: disposable project provisioned (human.approval_before_commit: true)
+project root: c2-009-dogfood.th8DCS/project
+NOTE: whether the real sop honours this exact config key/path and whether
+this minimal PLAN.md reaches a commit gate is recorded, not assumed: the
+S1 'reach gate' step below fails loudly (and is recorded) if sop run does
+not produce an approval gate.
+
+## Launch controller with SOP_CONTROLLER_PROJECTS=c2-009-dogfood.th8DCS/project
+controller failed to start; see c2-009-dogfood.th8DCS/controller.log
+NOT EXERCISED [S1]: controller failed to start against the disposable project
+NOT EXERCISED [S2]: controller failed to start against the disposable project
+NOT EXERCISED [S3]: controller failed to start against the disposable project
