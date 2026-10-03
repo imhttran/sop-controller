@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -68,6 +69,7 @@ const fakeStatefulSopSrc = `package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -80,6 +82,11 @@ type step struct {
 	SQL    []string          ` + "`json:\"sql\"`" + `
 	Write  map[string]string ` + "`json:\"write\"`" + `
 	Append map[string]string ` + "`json:\"append\"`" + `
+}
+
+func fixtureFail(err error) {
+	fmt.Fprintln(os.Stderr, "fixture error:", err)
+	os.Exit(1)
 }
 
 // listing responds to the pure-read changed-task listing the controller issues
@@ -177,34 +184,42 @@ func main() {
 		}
 		var st step
 		if err := json.Unmarshal(raw, &st); err != nil {
-			os.Exit(1)
+			fixtureFail(err)
 		}
 		if len(st.SQL) > 0 {
-			db, err := sql.Open("sqlite", "file:.agent-sdlc/state.db")
+			// Match the store's SQLite busy handler: renders may hold a read lock
+			// while this process writes. Without it, SQLITE_BUSY aborts the step.
+			db, err := sql.Open("sqlite", "file:.agent-sdlc/state.db?_pragma=busy_timeout(5000)")
 			if err != nil {
-				os.Exit(1)
+				fixtureFail(err)
 			}
 			defer db.Close()
 			for _, q := range st.SQL {
 				if _, err := db.Exec(q); err != nil {
-					os.Exit(1)
+					fixtureFail(err)
 				}
 			}
 		}
 		for rel, content := range st.Write {
 			p := filepath.Join(".agent-sdlc", rel)
 			os.MkdirAll(filepath.Dir(p), 0o755)
-			os.WriteFile(p, []byte(content), 0o644)
+			if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+				fixtureFail(err)
+			}
 		}
 		for rel, content := range st.Append {
 			p := filepath.Join(".agent-sdlc", rel)
 			os.MkdirAll(filepath.Dir(p), 0o755)
 			f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
-				os.Exit(1)
+				fixtureFail(err)
 			}
-			f.WriteString(content)
-			f.Close()
+			if _, err := f.WriteString(content); err != nil {
+				fixtureFail(err)
+			}
+			if err := f.Close(); err != nil {
+				fixtureFail(err)
+			}
 		}
 	})
 }
@@ -358,17 +373,39 @@ func newDogfoodServer(t *testing.T, seed []string) (*httptest.Server, string, st
 	return srv, config.ProjectID(root), root
 }
 
-// waitCommandDone polls a project- or task-scoped command status fragment
-// until it leaves "running", or fails the test. verbKey matches CommandRunner's
-// key (e.g. "run" for the project start-or-continue surface, "retry:jev013" for
-// a task-scoped retry), and path is the GET status URL to poll.
+// commandCompleted reads the root command-status element, so diagnostic output
+// containing state words cannot turn a failed or running command into success.
+func commandCompleted(code int, body string) (bool, error) {
+	if code != http.StatusOK {
+		return false, fmt.Errorf("HTTP %d: %s", code, body)
+	}
+	body = strings.TrimSpace(body)
+	switch {
+	case strings.HasPrefix(body, `<div class="cmd cmd-done">`):
+		return true, nil
+	case strings.HasPrefix(body, `<div class="cmd cmd-running">`):
+		return false, nil
+	default:
+		return false, fmt.Errorf("expected running or successful command completion: %s", body)
+	}
+}
+
+// waitCommandDone accepts only the command's explicit successful completion.
+// Commander.Exec waits for cmd.Run; CommandRunner publishes done under its
+// mutex only after a nil-error return. Thus done follows process exit and the
+// fixture's completed SQLite and artifact writes, unlike error or idle.
 func waitCommandDone(t *testing.T, srv *httptest.Server, path string) string {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var body string
 	for time.Now().Before(deadline) {
-		_, body = get(t, srv.URL+path)
-		if !strings.Contains(body, "cmd-running") {
+		code, b := get(t, srv.URL+path)
+		body = b
+		done, err := commandCompleted(code, body)
+		if err != nil {
+			t.Fatalf("command at %s failed: %v", path, err)
+		}
+		if done {
 			return body
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -631,6 +668,51 @@ func TestDogfoodRecoveryFlow(t *testing.T) {
 	}
 	if !strings.Contains(project, "2/2") {
 		t.Fatalf("project page does not show Completed==Total: %q", project)
+	}
+}
+
+// TestCommandCompleted uses the real template to protect against accepting a
+// failed command merely because it is no longer running, or reading output as
+// command state. These checks require no scheduling or fixture timing.
+func TestCommandCompleted(t *testing.T) {
+	views, err := NewViews(assets.FS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name     string
+		state    CommandState
+		code     int
+		wantDone bool
+		wantErr  bool
+	}{
+		{"running", CommandState{State: "running"}, http.StatusOK, false, false},
+		{"done", CommandState{State: "done"}, http.StatusOK, true, false},
+		{"error", CommandState{State: "error", Error: "exit status 1"}, http.StatusOK, false, true},
+		{"conflict", CommandState{State: "error", Conflict: true, Error: "stale"}, http.StatusOK, false, true},
+		{"idle", CommandState{State: "idle"}, http.StatusOK, false, true},
+		{"unknown", CommandState{State: "unknown"}, http.StatusOK, false, true},
+		{"non-200", CommandState{State: "done"}, http.StatusInternalServerError, false, true},
+		{"done with misleading output", CommandState{State: "done", Output: "cmd-running cmd-error cmd-idle"}, http.StatusOK, true, false},
+		{"running with misleading output", CommandState{State: "running", Output: "cmd-done"}, http.StatusOK, false, false},
+		{"error with misleading output", CommandState{State: "error", Error: "cmd-done"}, http.StatusOK, false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var body bytes.Buffer
+			if err := views.Render(&body, "command_status.html", cmdStatusData{Command: tc.state}); err != nil {
+				t.Fatal(err)
+			}
+			done, err := commandCompleted(tc.code, body.String())
+			if done != tc.wantDone || (err != nil) != tc.wantErr {
+				t.Fatalf("completion = (%v, %v), want (%v, error=%v)", done, err, tc.wantDone, tc.wantErr)
+			}
+		})
+	}
+	for _, body := range []string{"", "cmd-done", `<div class="other">cmd-done</div>`} {
+		if done, err := commandCompleted(http.StatusOK, body); done || err == nil {
+			t.Errorf("unrecognized body %q accepted: (%v, %v)", body, done, err)
+		}
 	}
 }
 
