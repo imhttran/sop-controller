@@ -29,11 +29,32 @@ plans/*.md               — what work needs to happen
 SOP execution            — SOP remains the workflow authority
 ```
 
-Plans MUST NOT override specifications. Historical evidence provides
-traceability only and MUST NOT override current specifications. The CTRL001
-boundary contract and inventory retain historical paths but are maintained
-current, non-normative references derived from `Boundary()` and the code;
-verification reports remain point-in-time evidence.
+Plans MUST NOT override specifications. Reports and historical artifacts are
+point-in-time and non-normative: they provide traceability only and MUST NOT
+override current specifications. The CTRL001 boundary contract and inventory
+retain historical paths but are maintained current, non-normative references
+derived from `Boundary()` and the code; verification reports remain
+point-in-time evidence.
+
+## Where a new document belongs
+
+```text
+requirements/  product intent (PRD)
+architecture/  structural boundaries and ownership
+specs/         normative required behavior
+plans/         current implementation plans
+reference/     commands, states, and values
+guides/        task-oriented how-tos
+reports/       point-in-time execution evidence (non-normative)
+tasks/         single-task sources run via `sop run --task`
+history/       completed or superseded work (non-normative)
+```
+
+Filesystem location is a **signal for readers and tooling, not lifecycle
+authority**. The authoritative plan state is the one SOP records in
+`.agent-sdlc/plan.meta.json` and reports via `sop status`. Some paths are kept
+where they are because SOP or the code records them — see
+[Kept operational paths](#kept-operational-paths) below.
 
 ## Getting Started
 
@@ -78,21 +99,58 @@ Normative descriptions of required behavior (MUST / SHOULD / MAY).
 ## Plans
 
 What work needs to happen. Plans describe implementation work and MUST NOT
-override specifications.
+override specifications. The authoritative plan state is the one SOP records in
+`.agent-sdlc/plan.meta.json` (`sop status` reports it); a file's location is a
+reader signal, not lifecycle authority.
 
-- [PLAN-SOP-Controller.md](PLAN-SOP-Controller.md) — **active** run-control and
-  live-activity plan (CTRL001–CTRL017). SOP records this as the active plan, so it
-  intentionally remains here and is executed via `sop run docs/PLAN-SOP-Controller.md`.
-- [PLAN-Hardening.md](history/plans/PLAN-Hardening.md) — observability hardening: remove
-  fixed-wait monitoring (HARD001–HARD008, completed). Execute via
-  `sop run docs/PLAN-Hardening.md`.
-- [plans/PLAN-Wrap-Up.md](history/plans/PLAN-Wrap-Up.md) — integration verification
-  workflow (WRAP-001–WRAP-012). Execute via `sop run docs/plans/PLAN-Wrap-Up.md`.
-- [plans/PLAN-Hardening.md](history/plans/PLAN-Hardening-2.md) — controller hardening
-  workflow (SC-001–SC-014).
-- [plans/PLAN-ORGANIZATION.md](history/plans/PLAN-ORGANIZATION.md) — plan purposes, naming
-  conventions, and documentation-organization guidelines.
-- [plans/PRECHECK.md](history/plans/PRECHECK.md) — pre-execution validation checklist.
+Current:
+
+- [plans/PLAN-Pre-Performance-Closure-Remaining.md](plans/PLAN-Pre-Performance-Closure-Remaining.md) —
+  **active** remaining Pre-Performance Closure work (CLOSE-005…CLOSE-011).
+  Recorded by SOP as the active plan; executed via
+  `sop run docs/plans/PLAN-Pre-Performance-Closure-Remaining.md`.
+- [plans/README.md](plans/README.md) — what belongs in `plans/` versus
+  `history/plans/`.
+
+Historical (completed or superseded — non-normative evidence):
+
+- [history/plans/](history/plans/) — see
+  [history/plans/README.md](history/plans/README.md). Includes
+  [PLAN-Finish-Pre-Performance-Closure.md](history/plans/PLAN-Finish-Pre-Performance-Closure.md)
+  (FP-001…FP-010), the CLOSE-004 rerun-readiness plan
+  ([PLAN-CLOSE-004-Rerun-Readiness.md](history/plans/PLAN-CLOSE-004-Rerun-Readiness.md)),
+  the hardening plans
+  ([PLAN-Hardening.md](history/plans/PLAN-Hardening.md),
+  [PLAN-Hardening-2.md](history/plans/PLAN-Hardening-2.md)), the wrap-up plan
+  ([PLAN-Wrap-Up.md](history/plans/PLAN-Wrap-Up.md)), and the organization and
+  precheck material
+  ([PLAN-ORGANIZATION.md](history/plans/PLAN-ORGANIZATION.md),
+  [PRECHECK.md](history/plans/PRECHECK.md)).
+- [PLAN-SOP-Controller.md](PLAN-SOP-Controller.md) — **superseded**
+  run-control and live-activity plan (CTRL001–CTRL017). Kept at this path because
+  SOP's plan archive records `docs/PLAN-SOP-Controller.md` as its plan source;
+  see [history/RETIRED-plan-sop-controller.md](history/RETIRED-plan-sop-controller.md).
+
+## Reports and Evidence
+
+Point-in-time execution evidence (non-normative). Reports record what was
+observed; they never override requirements, specifications, or architecture.
+See [reports/README.md](reports/README.md) for the full map.
+
+- [reports/pre-performance-closure/](reports/pre-performance-closure/) —
+  CLOSE-004…CLOSE-011 evidence for the active plan.
+- [reports/finish-pre-performance-closure/](reports/finish-pre-performance-closure/) —
+  FP-001…FP-009 and
+  [READINESS.md](reports/finish-pre-performance-closure/READINESS.md).
+- [reports/PERFORMANCE-BASELINE.md](reports/PERFORMANCE-BASELINE.md) — CLOSE-010
+  performance baseline report.
+
+## Tasks
+
+Single-task sources executed directly with `sop run --task`.
+
+- [tasks/CLOSE-004.md](tasks/CLOSE-004.md) — CLOSE-004 controller deterministic
+  baseline task source.
 
 ## Reference
 
@@ -146,6 +204,8 @@ do not define current behavior.
 - [history/PLAN-IDENTITY.md](history/PLAN-IDENTITY.md) — plan identity and
   named-plan resolution.
 - [history/PLAN.md](history/PLAN.md) — the historical v1 implementation plan.
+- [history/RETIRED-plan-sop-controller.md](history/RETIRED-plan-sop-controller.md) —
+  retirement/supersession history of the `plan-sop-controller` plan.
 - [history/HARD001-REPORT.md](history/HARD001-REPORT.md) — where the fixed
   240-second wait came from (external operator workflow only).
 - [history/HARD004-REPORT.md](history/HARD004-REPORT.md) — inactivity and timeout
@@ -159,3 +219,19 @@ do not define current behavior.
   [WRAP-009](history/WRAP/WRAP-009-VERIFICATION.md),
   [WRAP-011](history/WRAP/WRAP-011-VERIFICATION.md),
   [WRAP-012](history/WRAP/WRAP-012-FINAL-REPORT.md)).
+- [history/C2-009-REPORT.md](history/C2-009-REPORT.md) —
+  human-decision dogfood report (Phase 2).
+
+## Kept Operational Paths
+
+These paths are deliberately left where they are: SOP or the code records them,
+so moving them would change behavior or break provenance.
+
+- `docs/plans/PLAN-Pre-Performance-Closure-Remaining.md` — SOP's recorded active
+  plan source (matched by path in `.agent-sdlc/plan.meta.json`).
+- `docs/PLAN-SOP-Controller.md` — SOP plan-archive source path (its `sha256` is
+  recorded in `.agent-sdlc/archive/plan-sop-controller/plan.meta.json` and in the
+  retirement record), so it is not moved.
+- `docs/tasks/CLOSE-004.md` — task source executed via `sop run --task`.
+- `docs/reports/pre-performance-closure/` — the active plan declares files in this
+  directory as its task deliverables, so the path is operational.

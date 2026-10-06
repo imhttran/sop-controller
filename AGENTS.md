@@ -9,7 +9,7 @@ This is a pointer file, not a README. Start at the [documentation index](docs/RE
 1. Read the relevant product requirement: [docs/requirements/PRD.md](docs/requirements/PRD.md).
 2. Read the relevant specification(s): [docs/specs/](docs/specs/).
 3. Read the architecture constraints that apply: [docs/architecture/](docs/architecture/).
-4. Read the active implementation plan: [docs/PLAN-SOP-Controller.md](docs/PLAN-SOP-Controller.md).
+4. Read the SOP-recorded active implementation plan — the source path in `.agent-sdlc/plan.meta.json`, which `sop status` reports. Current planning lives in [docs/plans/](docs/plans/); completed and superseded plans live in [docs/history/plans/](docs/history/plans/).
 5. Do not treat [docs/history/](docs/history/) as current specifications — it is point-in-time and non-normative.
 6. SOP remains the workflow authority: read SOP state and delegate commands; never mutate SOP state or reimplement workflow logic (see [docs/architecture/SOP-BOUNDARY.md](docs/architecture/SOP-BOUNDARY.md)).
 
@@ -68,8 +68,15 @@ docs/specs/          normative required behavior
 docs/plans/          implementation plans
 docs/reference/      commands, states, and values
 docs/guides/         how to use or develop
+docs/reports/        point-in-time execution evidence (non-normative)
+docs/tasks/          single-task sources run via `sop run --task`
 docs/history/        non-normative point-in-time artifacts
 ```
 
-The SOP-recorded **active** plan stays at `docs/PLAN-SOP-Controller.md` (SOP
-matches plans by recorded source path); do not move it while it is active.
+SOP matches a plan by its recorded source path, so operational paths stay put:
+the **active** plan's path is recorded in `.agent-sdlc/plan.meta.json`;
+`docs/PLAN-SOP-Controller.md` is a **superseded** plan kept because SOP's plan
+archive records it as a source; `docs/tasks/CLOSE-004.md` is a `sop run --task`
+source; `docs/reports/pre-performance-closure/` holds the active plan's declared
+deliverables. Do not move these while SOP records them — see
+[docs/README.md](docs/README.md#kept-operational-paths).

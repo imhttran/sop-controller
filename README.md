@@ -70,51 +70,39 @@ make stop      # shut it down
 (`run`, `resume`, `validate`, `review`, `report`, `retry`, `reconcile`); see
 [docs/reference/CLI.md](docs/reference/CLI.md).
 
+## Basic Workflow
+
+The controller reflects SOP's lifecycle; it does not own it. SOP decides what is
+runnable, executes tasks, runs deterministic gates, and opens a human gate only
+for a genuine unresolved decision. The controller displays that state and
+delegates every action back to SOP.
+
+- Lifecycle and status vocabulary: [docs/specs/WORKFLOW.md](docs/specs/WORKFLOW.md)
+- Statuses, run stages, and recovery: [docs/reference/STATUS-AND-RECOVERY.md](docs/reference/STATUS-AND-RECOVERY.md)
+- Human gates: [docs/specs/HUMAN-APPROVAL.md](docs/specs/HUMAN-APPROVAL.md)
+
 ## Documentation
 
-Start at the documentation index: **[docs/README.md](docs/README.md)**.
-
+Start at the documentation index: **[docs/README.md](docs/README.md)** — it maps
+every document with a one-sentence "when to read it".
 Agent routing guide: [AGENTS.md](AGENTS.md).
 
-Major guides:
+- **Requirements:** [docs/requirements/PRD.md](docs/requirements/PRD.md)
+- **Architecture:** [docs/architecture/](docs/architecture/)
+- **Specifications:** [docs/specs/](docs/specs/)
+- **Reference:** [docs/reference/](docs/reference/)
+- **Guides:** [docs/guides/](docs/guides/)
+- **Plans:** [docs/plans/](docs/plans/) (current) and [docs/history/plans/](docs/history/plans/) (completed/superseded)
+- **Evidence reports:** [docs/reports/](docs/reports/)
+- **History:** [docs/history/](docs/history/)
 
-- [Getting started](docs/guides/GETTING-STARTED.md)
-- [Project discovery](docs/guides/PROJECT-DISCOVERY.md)
-- [Development](docs/guides/DEVELOPMENT.md)
+The plan currently executing is whatever SOP records in
+`.agent-sdlc/plan.meta.json` (`sop status` reports it) — not anything named in
+this file. Historical artifacts under `docs/history/` are point-in-time and
+non-normative.
 
-Reference:
+## Status
 
-- [Configuration](docs/reference/CONFIGURATION.md)
-- [CLI and routes](docs/reference/CLI.md)
-- [Status and recovery](docs/reference/STATUS-AND-RECOVERY.md)
-
-Specifications:
-
-- [Workflow](docs/specs/WORKFLOW.md)
-- [Execution](docs/specs/EXECUTION.md)
-- [Review](docs/specs/REVIEW.md)
-- [OpenJEV](docs/specs/OPENJEV.md)
-- [Human approval](docs/specs/HUMAN-APPROVAL.md)
-- [Activity](docs/specs/ACTIVITY.md)
-- [Agent provider](docs/specs/AGENT-PROVIDER.md)
-- [Security](docs/specs/SECURITY.md)
-
-## Requirements and Plans
-
-- [docs/requirements/PRD.md](docs/requirements/PRD.md) — product requirements
-
-Plans (executed by SOP):
-
-- [docs/PLAN-SOP-Controller.md](docs/PLAN-SOP-Controller.md) — **active**
-  run-control and live-activity plan (drives the current work). SOP records this
-  as the active plan, so it intentionally stays at `docs/PLAN-SOP-Controller.md`.
-- [docs/plans/PLAN-Wrap-Up.md](docs/history/plans/PLAN-Wrap-Up.md) — integration verification workflow
-  - Primary execution: `sop run docs/plans/PLAN-Wrap-Up.md`
-- [docs/plans/PLAN-Hardening.md](docs/history/plans/PLAN-Hardening-2.md) — controller hardening workflow
-  - Optional: `sop run docs/plans/PLAN-Hardening.md`
-- [docs/plans/PLAN-ORGANIZATION.md](docs/history/plans/PLAN-ORGANIZATION.md) — plan structure,
-  naming conventions, and guidelines
-- [docs/plans/PRECHECK.md](docs/history/plans/PRECHECK.md) — pre-execution validation checklist
-
-Historical reference: [docs/history/PLAN.md](docs/history/PLAN.md) — the v1
-implementation plan.
+Active and completed work is tracked by SOP, not by this README. See
+[docs/plans/](docs/plans/) for current planning and [docs/history/](docs/history/)
+for completed or superseded work.
