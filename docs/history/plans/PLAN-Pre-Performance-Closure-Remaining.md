@@ -1,6 +1,6 @@
 # Pre-Performance Closure — Remaining Work (CLOSE-005 … CLOSE-011)
 
-> **Document class:** plan · **Lifecycle:** active · **Authority:** implementation plan — materializes only the remaining documented closure work from the original Pre-Performance Closure DAG.
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
 
 ## Project
 
