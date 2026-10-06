@@ -83,16 +83,16 @@ override specifications.
 - [PLAN-SOP-Controller.md](PLAN-SOP-Controller.md) — **active** run-control and
   live-activity plan (CTRL001–CTRL017). SOP records this as the active plan, so it
   intentionally remains here and is executed via `sop run docs/PLAN-SOP-Controller.md`.
-- [PLAN-Hardening.md](PLAN-Hardening.md) — observability hardening: remove
+- [PLAN-Hardening.md](history/plans/PLAN-Hardening.md) — observability hardening: remove
   fixed-wait monitoring (HARD001–HARD008, completed). Execute via
   `sop run docs/PLAN-Hardening.md`.
-- [plans/PLAN-Wrap-Up.md](plans/PLAN-Wrap-Up.md) — integration verification
+- [plans/PLAN-Wrap-Up.md](history/plans/PLAN-Wrap-Up.md) — integration verification
   workflow (WRAP-001–WRAP-012). Execute via `sop run docs/plans/PLAN-Wrap-Up.md`.
-- [plans/PLAN-Hardening.md](plans/PLAN-Hardening.md) — controller hardening
+- [plans/PLAN-Hardening.md](history/plans/PLAN-Hardening-2.md) — controller hardening
   workflow (SC-001–SC-014).
-- [plans/PLAN-ORGANIZATION.md](plans/PLAN-ORGANIZATION.md) — plan purposes, naming
+- [plans/PLAN-ORGANIZATION.md](history/plans/PLAN-ORGANIZATION.md) — plan purposes, naming
   conventions, and documentation-organization guidelines.
-- [plans/PRECHECK.md](plans/PRECHECK.md) — pre-execution validation checklist.
+- [plans/PRECHECK.md](history/plans/PRECHECK.md) — pre-execution validation checklist.
 
 ## Reference
 

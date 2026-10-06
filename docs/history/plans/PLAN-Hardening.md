@@ -1,5 +1,7 @@
 # SOP Controller --- `sop run` Hardening Plan
 
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+
 **Status:** Ready for execution\
 **Repository:** `imhttran/sop-controller`\
 **Execution command:** `sop run`

@@ -1,5 +1,7 @@
 # SOP Controller — Plan Organization
 
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+
 **Last updated:** 2026-09-30
 
 ## Overview
@@ -8,7 +10,7 @@ Human-authored SOP plans for `sop-controller` live under `docs/plans/`. This doc
 
 One exception: the plan SOP records as **active** stays at the top level of `docs/`, because SOP matches a plan by its recorded source path. Today that is `docs/PLAN-SOP-Controller.md`. Moving an active plan would invalidate `.agent-sdlc/plan.meta.json` and break `sop run`, so it stays in place until SOP records a different active plan.
 
-Other documentation — requirements, architecture, guides, reference, specifications, and history — lives in per-category subdirectories of `docs/`. [README.md](../README.md) is the documentation index; see [Documentation Categories](#documentation-categories).
+Other documentation — requirements, architecture, guides, reference, specifications, and history — lives in per-category subdirectories of `docs/`. [README.md](../../README.md) is the documentation index; see [Documentation Categories](#documentation-categories).
 
 ## Plan Directory Structure
 
@@ -41,7 +43,7 @@ docs/
 | `history/` | Point-in-time artifacts, non-normative (`CTRL001/`, `WRAP/`, the historical v1 `PLAN.md`). |
 
 Authority flows product intent → specs → architecture → plans → SOP execution;
-see the [documentation index](../README.md#documentation-authority).
+see the [documentation index](../../README.md#documentation-authority).
 
 Guidelines:
 
@@ -51,7 +53,7 @@ Guidelines:
    Normative specification` header, a `Purpose`, a `Related Specifications`
    list, and a `Normative Language` note. Do not add MUST/SHOULD language to
    descriptive guides or reference pages.
-3. **Index every document.** Add every new document to [README.md](../README.md).
+3. **Index every document.** Add every new document to [README.md](../../README.md).
 4. **Plans live in `docs/plans/`.** The only plan outside `plans/` is the
    SOP-recorded **active** plan, which stays at the top level so `sop run` keeps
    working.

@@ -1,5 +1,7 @@
 # SOP Controller Wrap-Up Plan
 
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+
 ## Objective
 
 Finish the `agentic-sop` + `sop-controller` integration and prove that the controller can be developed, validated, and completed using the intended SOP workflow.

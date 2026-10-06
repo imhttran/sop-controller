@@ -1,5 +1,7 @@
 # PLAN — SOP Controller Phase 2: Human Decision Integration
 
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+
 ## Project
 
 sop-controller

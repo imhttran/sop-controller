@@ -1,5 +1,7 @@
 # SOP Controller Pre-Check
 
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+
 Phase 0 verification gate, run before the controlled refactor from the donor
 auth application to the Go + `html/template` + HTMX dashboard. Pre-checks
 verify and report; they do not migrate or delete on their own.

@@ -108,13 +108,13 @@ Plans (executed by SOP):
 - [docs/PLAN-SOP-Controller.md](docs/PLAN-SOP-Controller.md) — **active**
   run-control and live-activity plan (drives the current work). SOP records this
   as the active plan, so it intentionally stays at `docs/PLAN-SOP-Controller.md`.
-- [docs/plans/PLAN-Wrap-Up.md](docs/plans/PLAN-Wrap-Up.md) — integration verification workflow
+- [docs/plans/PLAN-Wrap-Up.md](docs/history/plans/PLAN-Wrap-Up.md) — integration verification workflow
   - Primary execution: `sop run docs/plans/PLAN-Wrap-Up.md`
-- [docs/plans/PLAN-Hardening.md](docs/plans/PLAN-Hardening.md) — controller hardening workflow
+- [docs/plans/PLAN-Hardening.md](docs/history/plans/PLAN-Hardening-2.md) — controller hardening workflow
   - Optional: `sop run docs/plans/PLAN-Hardening.md`
-- [docs/plans/PLAN-ORGANIZATION.md](docs/plans/PLAN-ORGANIZATION.md) — plan structure,
+- [docs/plans/PLAN-ORGANIZATION.md](docs/history/plans/PLAN-ORGANIZATION.md) — plan structure,
   naming conventions, and guidelines
-- [docs/plans/PRECHECK.md](docs/plans/PRECHECK.md) — pre-execution validation checklist
+- [docs/plans/PRECHECK.md](docs/history/plans/PRECHECK.md) — pre-execution validation checklist
 
 Historical reference: [docs/history/PLAN.md](docs/history/PLAN.md) — the v1
 implementation plan.
