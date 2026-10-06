@@ -1,0 +1,27 @@
+{
+  "source_repository": "/Users/imhttran/agentic-workspace/projects/sop-controller",
+  "source_revision": "90626f302868f6f0a7d7b6f644a62d6ac9d21159",
+  "source_revision_command": "git -C /Users/imhttran/agentic-workspace/projects/sop-controller archive 90626f302868f6f0a7d7b6f644a62d6ac9d21159",
+  "archive_sha256": "eb0f6918b440759120b66d5cde798bc7b1954d03928bfe5eab753d0e471d2887",
+  "go_version": "go version go1.27.1 darwin/arm64",
+  "go_env": {
+    "GOVERSION": "go1.27.1",
+    "GOHOSTOS": "darwin",
+    "GOHOSTARCH": "arm64",
+    "GOMODCACHE": "/Users/imhttran/go/pkg/mod",
+    "GOFLAGS": "",
+    "GOMAXPROCS": ""
+  },
+  "host": "Darwin Hoangs-MacBook-Pro-2.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:18:53 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6031 arm64",
+  "sop_binary": "/Users/imhttran/go/bin/sop",
+  "sop_version": "sop dev",
+  "protocol": {
+    "disposable_copy": "git archive <rev> extracted fresh into a new directory for every run",
+    "build_cache": "fresh per-repetition GOCACHE (independent); module cache shared",
+    "test_cache": "starts empty with each fresh GOCACHE, so test workloads execute",
+    "execution_mode": "sequential",
+    "timing": "whole-command wall-clock duration, measured by the operator shell",
+    "added_command_arguments": "none (exact contract command)"
+  },
+  "records": 12
+}
