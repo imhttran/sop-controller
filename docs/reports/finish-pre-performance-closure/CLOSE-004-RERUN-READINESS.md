@@ -20,23 +20,23 @@ evidence rather than being asserted.
 Each field below carries exactly one allowed evidence-backed value: `PASS`, `FAIL`,
 `NOT PROVEN`, `UNAVAILABLE`, `NOT REQUIRED`, or `BACKLOG`.
 
-| Field | Value | Basis |
-|---|---|---|
-| Controller revision | `PASS` | `git rev-parse HEAD` at cwd `sop-controller` = `c5f646248b55a07e87668a010655c2eae2ad62af` (SOP-captured, §2.1). |
-| Agentic-SOP revision | `PASS` | `git rev-parse HEAD` at cwd `agentic-sop` = `388b88b2c1372733f64b434b1d0c780582ffdb1d` (SOP-captured, §2.2). |
-| Controller deterministic gates | `PASS` | All six gates exit `0` at `sop-controller` HEAD `c5f6462` (SOP-captured raw output, §2.1). |
-| Agentic-SOP deterministic gates | `PASS` | Final captured run: all six gates exit `0` at `agentic-sop` HEAD `388b88b` (SOP-captured raw output, §2.2). An earlier `go test -count=1` / `go test -race -count=1` run in `internal/repoindex` **failed** (`FAIL`, see §2.2); the PASS reflects the final captured run only. |
-| IMPLEMENT_NO_PROGRESS | `PASS` | Proven `NO_PROGRESS → BLOCKED → RequiresHuman=false → no approval → AUTO_CONTINUE=false`; observed via preserved lifecycle evidence (FP-002 §2/§4). |
-| FIX_NO_PROGRESS | `NOT PROVEN` | No preserved FIX no-progress record exercises the chain end to end in this checkout; see §4. `FIX_NO_PROGRESS: NOT FULLY PROVEN`. |
-| Authorized sibling execution | `PASS` | `SOP_WORKSPACE_ROOTS` grants read mode to the sibling; sibling commands executed at that cwd; see §5. |
-| Sibling mutation protection | `NOT PROVEN` | Sibling tree is clean at HEAD `388b88b` and gates were run under read-only root mode, but the sibling history records an in-task fixture commit (`388b88b`), so "no mutation by this task" cannot be asserted; see §5. |
-| Historical CLOSE-004 artifact | `UNAVAILABLE` | `docs/reports/pre-performance-closure/CLOSE-004-controller-deterministic-baseline.md` not present in the working tree; see §3. |
-| Historical artifact provenance | `UNAVAILABLE` | Classified as exactly one of A–E: **E** (provenance cannot be established); see §3. |
-| Humanized decision requirement | `BACKLOG` | No CLOSE-004 acceptance criterion requires it; see §6. |
-| Evidence-only task support | `BACKLOG` | Evidence-only / verification task contract; see §6. |
-| Blocking defects | `NOT PROVEN` | No blocking production-code defect demonstrated; see §6. |
-| Non-blocking backlog | `BACKLOG` | Humanized decision UX and Deliverable Conformance / Evidence Progress Detection; see §6. |
-| Recommendation | `NOT REQUIRED` | Readiness recommendation is recorded narratively in §7; no pass/fail gate value applies to a recommendation. |
+| Field                           | Value          | Basis                                                                                                                                                                                                                                                                          |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Controller revision             | `PASS`         | `git rev-parse HEAD` at cwd `sop-controller` = `c5f646248b55a07e87668a010655c2eae2ad62af` (SOP-captured, §2.1).                                                                                                                                                                |
+| Agentic-SOP revision            | `PASS`         | `git rev-parse HEAD` at cwd `agentic-sop` = `388b88b2c1372733f64b434b1d0c780582ffdb1d` (SOP-captured, §2.2).                                                                                                                                                                   |
+| Controller deterministic gates  | `PASS`         | All six gates exit `0` at `sop-controller` HEAD `c5f6462` (SOP-captured raw output, §2.1).                                                                                                                                                                                     |
+| Agentic-SOP deterministic gates | `PASS`         | Final captured run: all six gates exit `0` at `agentic-sop` HEAD `388b88b` (SOP-captured raw output, §2.2). An earlier `go test -count=1` / `go test -race -count=1` run in `internal/repoindex` **failed** (`FAIL`, see §2.2); the PASS reflects the final captured run only. |
+| IMPLEMENT_NO_PROGRESS           | `PASS`         | Proven `NO_PROGRESS → BLOCKED → RequiresHuman=false → no approval → AUTO_CONTINUE=false`; observed via preserved lifecycle evidence (FP-002 §2/§4).                                                                                                                            |
+| FIX_NO_PROGRESS                 | `NOT PROVEN`   | No preserved FIX no-progress record exercises the chain end to end in this checkout; see §4. `FIX_NO_PROGRESS: NOT FULLY PROVEN`.                                                                                                                                              |
+| Authorized sibling execution    | `PASS`         | `SOP_WORKSPACE_ROOTS` grants read mode to the sibling; sibling commands executed at that cwd; see §5.                                                                                                                                                                          |
+| Sibling mutation protection     | `NOT PROVEN`   | Sibling tree is clean at HEAD `388b88b` and gates were run under read-only root mode, but the sibling history records an in-task fixture commit (`388b88b`), so "no mutation by this task" cannot be asserted; see §5.                                                         |
+| Historical CLOSE-004 artifact   | `UNAVAILABLE`  | `docs/reports/pre-performance-closure/CLOSE-004-controller-deterministic-baseline.md` not present in the working tree; see §3.                                                                                                                                                 |
+| Historical artifact provenance  | `UNAVAILABLE`  | Classified as exactly one of A–E: **E** (provenance cannot be established); see §3.                                                                                                                                                                                            |
+| Humanized decision requirement  | `BACKLOG`      | No CLOSE-004 acceptance criterion requires it; see §6.                                                                                                                                                                                                                         |
+| Evidence-only task support      | `BACKLOG`      | Evidence-only / verification task contract; see §6.                                                                                                                                                                                                                            |
+| Blocking defects                | `NOT PROVEN`   | No blocking production-code defect demonstrated; see §6.                                                                                                                                                                                                                       |
+| Non-blocking backlog            | `BACKLOG`      | Humanized decision UX and Deliverable Conformance / Evidence Progress Detection; see §6.                                                                                                                                                                                       |
+| Recommendation                  | `NOT REQUIRED` | Readiness recommendation is recorded narratively in §7; no pass/fail gate value applies to a recommendation.                                                                                                                                                                   |
 
 ---
 
@@ -53,14 +53,14 @@ All six required gates were executed at cwd
 `/Users/imhttran/agentic-workspace/projects/sop-controller` at revision
 `c5f646248b55a07e87668a010655c2eae2ad62af`:
 
-| Gate | Command | cwd | Revision | Exit |
-|---|---|---|---|---|
-| Format | `gofmt -l .` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` (empty output = clean) |
-| Vet | `go vet ./...` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` |
-| Test | `go test -count=1 ./...` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` |
-| Race | `go test -race -count=1 ./...` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` |
-| Build | `go build ./...` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` |
-| Diff | `git diff --check` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` (no output) |
+| Gate   | Command                        | cwd                                                         | Revision  | Exit                       |
+| ------ | ------------------------------ | ----------------------------------------------------------- | --------- | -------------------------- |
+| Format | `gofmt -l .`                   | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` (empty output = clean) |
+| Vet    | `go vet ./...`                 | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0`                        |
+| Test   | `go test -count=1 ./...`       | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0`                        |
+| Race   | `go test -race -count=1 ./...` | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0`                        |
+| Build  | `go build ./...`               | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0`                        |
+| Diff   | `git diff --check`             | `/Users/imhttran/agentic-workspace/projects/sop-controller` | `c5f6462` | `0` (no output)            |
 
 The verbatim captured stdout/stderr for these commands appears in the SOP-recorded section
 at the end of this report (search the `Captured command evidence (SOP-recorded)` heading for
@@ -72,14 +72,14 @@ the entries whose `cwd` is
 All six required gates were executed at cwd `/Users/imhttran/agentic-workspace/agentic-sop` at
 revision `388b88b2c1372733f64b434b1d0c780582ffdb1d`:
 
-| Gate | Command | cwd | Revision | Exit |
-|---|---|---|---|---|
-| Format | `gofmt -l .` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (empty output = clean) |
-| Vet | `go vet ./...` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` |
-| Test | `go test -count=1 ./...` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (final run; see the earlier FAIL note below) |
-| Race | `go test -race -count=1 ./...` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (final run; see the earlier FAIL note below) |
-| Build | `go build ./...` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` |
-| Diff | `git diff --check` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (no output) |
+| Gate   | Command                        | cwd                                             | Revision  | Exit                                             |
+| ------ | ------------------------------ | ----------------------------------------------- | --------- | ------------------------------------------------ |
+| Format | `gofmt -l .`                   | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (empty output = clean)                       |
+| Vet    | `go vet ./...`                 | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0`                                              |
+| Test   | `go test -count=1 ./...`       | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (final run; see the earlier FAIL note below) |
+| Race   | `go test -race -count=1 ./...` | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (final run; see the earlier FAIL note below) |
+| Build  | `go build ./...`               | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0`                                              |
+| Diff   | `git diff --check`             | `/Users/imhttran/agentic-workspace/agentic-sop` | `388b88b` | `0` (no output)                                  |
 
 **Earlier failing run (recorded truthfully, not hidden).** Earlier during this task the
 sibling's `go test -count=1 ./...` and `go test -race -count=1 ./...` runs recorded `FAIL` in
@@ -108,15 +108,15 @@ end of this report (entries whose `cwd` is
   subdirectory, `finish-pre-performance-closure/`. There is **no `pre-performance-closure/`
   subdirectory**, so the parent directory of the expected artifact
   (`docs/reports/pre-performance-closure/`) does not exist. (Note: the existing
-  `finish-pre-performance-closure/` directory is a *different* directory and is where this
+  `finish-pre-performance-closure/` directory is a _different_ directory and is where this
   report lives; it is not the expected artifact's parent.) The expected artifact path
   `docs/reports/pre-performance-closure/CLOSE-004-controller-deterministic-baseline.md`
   therefore does not exist and its parent directory does not exist.
 - Repository-wide `search_files` for `CLOSE-004-controller-deterministic-baseline` and for
-  `pre-performance-closure` matched only plan/report *text* (in
+  `pre-performance-closure` matched only plan/report _text_ (in
   `docs/history/plans/PLAN-Finish-Pre-Performance-Closure.md`,
-  `docs/plans/CLOSE-004-RERUN-READINESS-PROMPT.md`,
-  `docs/plans/PLAN-CLOSE-004-Rerun-Readiness.md`,
+  `docs/history/plans/CLOSE-004-RERUN-READINESS-PROMPT.md`,
+  `docs/history/plans/PLAN-CLOSE-004-Rerun-Readiness.md`,
   `docs/reports/finish-pre-performance-closure/CLOSE-004-RERUN-READINESS.md`, and
   `docs/reports/finish-pre-performance-closure/FP-009-close-004-evidence-preservation.md`),
   never a file at the expected path.
@@ -132,7 +132,7 @@ where it was ever expected (agentic-sop vs sop-controller) or that it was ever p
 specific searches above (whole-tree content search for the artifact name and directory listing
 of `docs/reports/`) would have found a producing run's output if it had been preserved under
 `docs/reports/`, and no `CLOSE-004/` run directory exists under `.agent-sdlc/runs/`; on that
-basis D (never produced) is *consistent* with the evidence but cannot be proven, and B
+basis D (never produced) is _consistent_ with the evidence but cannot be proven, and B
 (existed but was never preserved) cannot be shown either. Because neither existence, location,
 nor prior production can be established from repository/git/run evidence, the single
 best-supported classification is **E** rather than A/B/C/D. It is not classified as A (no
@@ -166,7 +166,7 @@ a FIX-stage invocation end to end to `BLOCKED`/`RequiresHuman=false`. `FP-002` �
 no-progress outcome as **NOT OBSERVED** (no dedicated `FIX_NO_PROGRESS` classification record in
 `.agent-sdlc/runs/`; the only no-progress record is the IMPLEMENT path). The chain shares the same
 `NO_PROGRESS` class and controller boundary as the proven IMPLEMENT path, but the FIX-stage
-*entry* into that class is not demonstrated by any existing deterministic evidence available to
+_entry_ into that class is not demonstrated by any existing deterministic evidence available to
 this read-only task. No live failure was manufactured, the repository was not intentionally
 broken, and no sibling source test was added (the sibling tree is read-only for this task).
 
@@ -223,9 +223,10 @@ boundary.
 
 **Non-blocking backlog: `BACKLOG`.** The following remain backlog with no successor code added
 here:
+
 - Humanized decision-brief presentation and multi-option presentation (per `FP-004` §3–§4).
 - **Deliverable Conformance / Evidence Progress Detection** (per
-  `docs/plans/REPAIR-CLOSE-004-READINESS-BLOCKERS.md` §4): SOP should distinguish missing,
+  `docs/history/plans/REPAIR-CLOSE-004-READINESS-BLOCKERS.md` §4): SOP should distinguish missing,
   stub/placeholder, non-conforming, and completed evidence deliverables, and progress detection
   should not rely solely on file existence. This is an architectural backlog item, not a
   CLOSE-004 blocker, and must not trigger a harness redesign during this task.
@@ -309,6 +310,7 @@ ok  	sop-controller/internal/web	(cached)
 ```
 
 <!-- SOP captured command evidence -->
+
 ## Captured command evidence (SOP-recorded)
 
 Exact commands, working directory, exit code and captured output recorded by SOP for this task. This section is written by SOP, not the implementation agent; it is the raw evidence the task requires.
@@ -428,4 +430,3 @@ ok  	sop-controller/internal/web	(cached)
 ```
 
 ```
-

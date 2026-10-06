@@ -1,5 +1,7 @@
 # Prepare CLOSE-004 for Governed Rerun
 
+> **Document class:** planning input (operator prompt) · **Lifecycle:** complete · **Authority:** historical — the source prompt for the completed CLOSE-004 rerun-readiness plan.
+
 Run this from
 `/Users/imhttran/agentic-workspace/projects/sop-controller`.
 

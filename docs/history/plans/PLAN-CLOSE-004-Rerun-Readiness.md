@@ -1,10 +1,12 @@
 # CLOSE-004 Rerun Readiness
 
-> **Document class:** plan · **Lifecycle:** active · **Authority:** implementation plan.
-> This is the SOP-compilable restatement of the operator's readiness prompt at
-> [`CLOSE-004-RERUN-READINESS-PROMPT.md`](CLOSE-004-RERUN-READINESS-PROMPT.md). That
-> document is the authoritative source; this plan restates it to make it executable and
-> changes structure only, never intent.
+> **Document class:** plan · **Lifecycle:** complete · **Authority:** historical — a record of completed work, not current planning authority.
+>
+> SOP-compilable restatement of the operator's readiness prompt at
+> [`CLOSE-004-RERUN-READINESS-PROMPT.md`](CLOSE-004-RERUN-READINESS-PROMPT.md). The plan was
+> archived `COMPLETE`; its task record, run evidence, and the accepted readiness report at
+> [`../../reports/finish-pre-performance-closure/CLOSE-004-RERUN-READINESS.md`](../../reports/finish-pre-performance-closure/CLOSE-004-RERUN-READINESS.md)
+> are preserved.
 
 ## Project
 

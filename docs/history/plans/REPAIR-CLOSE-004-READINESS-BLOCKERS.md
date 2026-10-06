@@ -1,5 +1,7 @@
 # Repair CLOSE-004 Readiness Blockers and Perform One Governed CRR Run
 
+> **Document class:** operator runbook · **Lifecycle:** superseded · **Authority:** historical — a point-in-time runbook. Its stub-removal precondition was not applied: the deliverable had already been replaced by a full readiness report, so no project artifact was deleted.
+
 Run from `/Users/imhttran/agentic-workspace/projects/sop-controller`.
 
 ## Current blockers
@@ -21,7 +23,7 @@ not force retry, use an outer retry loop, increase budgets, or hand-edit
 
 In both repositories capture:
 
-``` bash
+```bash
 pwd
 git status --short --branch
 git rev-parse HEAD
@@ -52,7 +54,7 @@ defect is test-only, keep the repair test-scoped.
 
 Run the narrowest relevant test first, then fresh agentic-sop gates:
 
-``` bash
+```bash
 gofmt -l .
 go vet ./...
 go test -count=1 ./...
@@ -69,19 +71,19 @@ If these gates do not pass, STOP. Do not remove the stub or invoke CRR.
 
 Only after agentic-sop gates PASS, inspect:
 
-``` text
+```text
 docs/reports/finish-pre-performance-closure/CLOSE-004-RERUN-READINESS.md
 ```
 
 Before deletion prove:
 
--   it is untracked;
--   it came from the failed/blocked CRR readiness attempt;
--   it is only a stub/non-conforming placeholder;
--   it contains no authoritative raw evidence that exists nowhere else;
--   it contains no user-authored information requiring preservation;
--   removal does not erase SOP lifecycle state;
--   it is not tracked by git.
+- it is untracked;
+- it came from the failed/blocked CRR readiness attempt;
+- it is only a stub/non-conforming placeholder;
+- it contains no authoritative raw evidence that exists nowhere else;
+- it contains no user-authored information requiring preservation;
+- removal does not erase SOP lifecycle state;
+- it is not tracked by git.
 
 Inspect relevant CRR run/evidence artifacts as part of that proof.
 
@@ -110,7 +112,7 @@ during this task.
 
 Before invoking SOP again run:
 
-``` bash
+```bash
 gofmt -l .
 go vet ./...
 go test -count=1 ./...
@@ -125,16 +127,16 @@ Capture raw evidence. If any gate fails, STOP and do not invoke CRR.
 
 Before continuation verify:
 
--   agentic-sop fresh gates PASS;
--   sop-controller fresh gates PASS;
--   stale fixture repaired without weakening intent;
--   invalid readiness stub safely removed;
--   readiness plan still exists;
--   prior BLOCKED/NO_PROGRESS evidence remains preserved;
--   no approval was manufactured;
--   no `.agent-sdlc` state was hand-edited;
--   no retry/budget limits changed;
--   CLOSE-004 and CLOSE-005 have not run.
+- agentic-sop fresh gates PASS;
+- sop-controller fresh gates PASS;
+- stale fixture repaired without weakening intent;
+- invalid readiness stub safely removed;
+- readiness plan still exists;
+- prior BLOCKED/NO_PROGRESS evidence remains preserved;
+- no approval was manufactured;
+- no `.agent-sdlc` state was hand-edited;
+- no retry/budget limits changed;
+- CLOSE-004 and CLOSE-005 have not run.
 
 If any required precondition fails, STOP.
 
@@ -142,7 +144,7 @@ If any required precondition fails, STOP.
 
 Perform exactly one:
 
-``` bash
+```bash
 sop run docs/plans/PLAN-CLOSE-004-Rerun-Readiness.md
 ```
 
@@ -159,7 +161,7 @@ Whatever terminal/non-continuable result occurs, STOP and report it.
 
 The resulting artifact should be:
 
-``` text
+```text
 docs/reports/finish-pre-performance-closure/CLOSE-004-RERUN-READINESS.md
 ```
 
@@ -177,7 +179,7 @@ convert missing evidence into PASS.
 
 Preserve:
 
-``` text
+```text
 NO_PROGRESS
   -> BLOCKED
   -> RequiresHuman=false
@@ -206,7 +208,7 @@ unrelated user changes. Do not amend unrelated history.
 
 If repository workflow permits, a focused commit message is:
 
-``` text
+```text
 test: make controller repoindex fixture lifecycle-independent
 ```
 
@@ -218,7 +220,7 @@ explicitly requires it. Do not manufacture commits.
 
 Report:
 
-``` text
+```text
 agentic-sop baseline:
 agentic-sop fixture defect:
 agentic-sop repair:
@@ -260,12 +262,12 @@ If NOT READY: `Resolve only the newly identified blocking defect(s).`
 
 End with exactly one readiness verdict and STOP:
 
-``` text
+```text
 CLOSE-004 READY FOR GOVERNED RERUN
 ```
 
 or
 
-``` text
+```text
 CLOSE-004 NOT READY
 ```
