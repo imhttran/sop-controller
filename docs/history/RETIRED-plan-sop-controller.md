@@ -2,9 +2,23 @@
 
 **Type:** Historical record (point-in-time, non-normative)
 
-This record documents why the previously active SOP plan was retired. It is
-non-normative history; current behavior is defined by the specifications under
-`docs/specs/`.
+This record documents the retirement/supersession history of the `plan-sop-controller`
+plan. It is **non-normative history**. SOP lifecycle state remains the sole authority
+for execution; current behavior is defined by the specifications under `docs/specs/`.
+
+## Authority (which state is authoritative for execution)
+
+- **SOP lifecycle state is authoritative.** The active plan is the one recorded beside
+  the machine plan in `.agent-sdlc/plan.meta.json` (plan id, source path, content hash),
+  and `sop status` reports it. As of the Phase 8 pre-execution cleanup, `sop-controller`'s
+  active plan is `plan-sop-controller` (`state: ACTIVE`): the controller plan was
+  **re-installed as the replacement used to supersede/clear the misplaced Phase 8 state**
+  in this repository.
+- **This document is not lifecycle state.** It cannot activate a plan, cannot make a task
+  runnable, and cannot deactivate a plan. A Markdown file's presence or absence never
+  changes lifecycle state; a plan becomes active only through the deterministic
+  activation path (`sop run <PLAN>` / `sop plan activate <PLAN>`), which records its
+  provenance. A retired _document_ therefore cannot accidentally become runnable.
 
 ## Plan
 
@@ -14,18 +28,17 @@ plan_id: plan-sop-controller
 recorded source sha256: 42f48315b3d567813eefb8b635a76fc80f4b068276b92d90b4a37fadc2ce36f1
 ```
 
-## Disposition
+## Disposition (historical)
 
 ```text
-RETIRED / SUPERSEDED
+RETIRED / SUPERSEDED (as a work item)
 ```
 
-Superseded by Phase 8 (`plan_id: phase-8-context-execution-efficiency`). Phase 8 is
-**owned by the `agentic-sop` repository** (it requires that repository's harness
-runtime, trace writer/schema, evaluation, budgets, recovery/replan and routing);
-the plan document lives there as
-`docs/plans/PHASE-8-CONTEXT-EXECUTION-EFFICIENCY.md`. It is not implemented in
-`sop-controller`.
+The plan's **work** was retired: it is stale relative to repository reality, and its
+first task could not produce verified acceptance (see Reason). The retirement was
+recorded here. The plan that superseded it in intent, **Phase 8, is no longer owned by
+`sop-controller`**; it is owned by the `agentic-sop` repository and lives there as
+`docs/plans/PHASE-8-CONTEXT-EXECUTION-EFFICIENCY.md`.
 
 ## Reason
 
@@ -61,22 +74,36 @@ Phase 8 rather than force retries, fabricate mutations, or enlarge
 budgets.
 ```
 
-## Transition
+## Transition history
 
-- Retired / superseded through SOP's supported reconciliation mechanism:
+1. **Superseded by Phase 8** (initial transition), through SOP's reconciliation:
 
-  ```text
-  sop reconcile "docs/plans/PHASE-8-CONTEXT-EXECUTION-EFFICIENCY.md"
-    removed: [CTRL001 … CTRL017]   (unexecuted)
-    added:   [CTX-001 … CTX-012]
-  ```
+   ```text
+   sop reconcile "docs/plans/PHASE-8-CONTEXT-EXECUTION-EFFICIENCY.md"
+     removed: [CTRL001 … CTRL017]   (unexecuted)
+     added:   [CTX-001 … CTX-012]
+   ```
 
-  No task was marked PASS, no approval was recorded, and no lifecycle state was
-  hand-edited.
+2. **Phase 8 relocated to `agentic-sop`.** The plan document was moved out of this
+   repository; the dangling Phase 8 task state here was then **superseded and archived**
+   by the PLAN-001 lifecycle commands:
 
-- Existing run/task artifacts are preserved: CTRL001–CTRL017 histories remain under
-  `.agent-sdlc/runs/`, and the earlier plan snapshot remains under
-  `.agent-sdlc/archive/plan-sop-controller/`.
+   ```text
+   sop plan supersede "docs/PLAN-SOP-Controller.md"
+   ```
+
+   which archived the misplaced Phase 8 state as `SUPERSEDED` (under
+   `.agent-sdlc/archive/phase-8-context-execution-efficiency/`) and re-installed this
+   controller plan as `sop-controller`'s active plan.
+
+Neither transition marked a task PASS, recorded an approval, fabricated completion, or
+hand-edited lifecycle state.
+
+## Preservation
+
+- CTRL001–CTRL017 run histories remain under `.agent-sdlc/runs/`.
+- Plan snapshots remain under `.agent-sdlc/archive/` (including
+  `phase-8-context-execution-efficiency`, archived `SUPERSEDED`).
 - Git history for this repository was not rewritten.
 
 ## Historical final states
@@ -86,4 +113,5 @@ CTRL001  CONTINUE (requeued)   no repository mutation   continuations 4/4
 CTRL006  NEEDS_HUMAN / WAITING_FOR_HUMAN   leftover; not an approval; not acted on
 ```
 
-_Recorded as part of the authorized plan transition, 2026-10-06._
+_Retirement recorded 2026-10-06; wording reconciled with SOP lifecycle state and the
+Phase 8 relocation during the Phase 8 pre-execution cleanup._
