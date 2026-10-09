@@ -119,7 +119,7 @@ decision, and SOP exposes no cancellation operation for the controller to
 delegate to.
 
 The controller therefore **does not simulate, approximate, or fake** a cancel.
-The boundary entry `Client.CancelRun` returns `ErrOperationUnsupported`; see
+The controller has no cancel operation or route; see
 [../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md)
 for the recorded gap and
 [../architecture/SOP-BOUNDARY.md](../architecture/SOP-BOUNDARY.md) for why the

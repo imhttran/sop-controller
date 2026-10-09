@@ -16,17 +16,10 @@ type CommandState struct {
 	Output  string
 	Error   string
 	Started time.Time
-	// Conflict is true when the recorded error is SOP's own rejection of a
-	// decision (a stale/not-applicable gate) or of a reconciliation mutation
-	// (e.g. a real gap in the external SOP binary for the verb/flag), not an
-	// infrastructure failure. It lets the status fragment present an actionable
-	// conflict (re-read the gate / retry) rather than a generic error, without
-	// claiming a success or a task failure. It is set only from a typed
-	// *sopclient.DecisionRejection or *sopclient.ReconcileRejection.
+	// Conflict is set only for a typed DecisionRejection or ReconcileRejection:
+	// SOP refused, so the fragment shows an actionable conflict, not an error.
 	Conflict bool
-	// TaskID/Stage/Attempt surface the task SOP is actively working, when SOP
-	// exposes one. All three stay zero-value (absent, never fabricated) unless
-	// populated from a live sopclient read.
+	// TaskID/Stage/Attempt come only from a live sopclient read.
 	TaskID  string
 	Stage   string
 	Attempt int
@@ -77,12 +70,8 @@ func (cr *CommandRunner) Start(project, verb string, fn func(ctx context.Context
 		if err != nil {
 			st.State = "error"
 			st.Error = err.Error()
-			// SOP rejecting a decision (stale/not-applicable gate) or a
-			// reconciliation mutation is an actionable conflict, not an
-			// infrastructure failure: classify it so the status fragment presents it
-			// truthfully rather than as a generic error. A precondition rejection
-			// (ErrTaskNotInChangedSet etc.) is NOT one of these and stays a plain
-			// error, since it is the controller's own pre-SOP validation.
+			// SOP's own refusal is a conflict; the controller's pre-SOP precondition errors
+			// stay plain errors.
 			var drej *sopclient.DecisionRejection
 			var rrej *sopclient.ReconcileRejection
 			st.Conflict = errors.As(err, &drej) || errors.As(err, &rrej)

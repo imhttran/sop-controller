@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 // CTRL007 verification (S1-S5). These tests are cursor/sequence driven: they
@@ -342,19 +341,6 @@ func TestActivityStreamRequiresFlusher(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "streaming unsupported") {
 		t.Fatalf("expected 'streaming unsupported', got %q", rr.Body.String())
-	}
-}
-
-// S3: a configured poll cadence is honoured by pollInterval() instead of
-// silently falling back to the 1s default.
-func TestPollIntervalHonoursConfig(t *testing.T) {
-	custom := 250 * time.Millisecond
-	h := &Handlers{poll: custom}
-	if got := h.pollInterval(); got != custom {
-		t.Fatalf("pollInterval = %v, want %v", got, custom)
-	}
-	if got := (&Handlers{}).pollInterval(); got != time.Second {
-		t.Fatalf("zero poll should default to 1s, got %v", got)
 	}
 }
 

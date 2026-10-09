@@ -6,36 +6,16 @@ import (
 	"time"
 )
 
-// This file defines the controller-facing performance read model: where SOP
-// recorded a task or a run spending its time, and the operation counts SOP
-// recorded (agent calls, validation/review runs, fix cycles).
-//
-// Source-of-truth rule (performance): PERFORMANCE IS SOP'S MEASUREMENT, NOT THE
-// CONTROLLER'S. agentic-sop owns timing through its internal/perf package and
-// persists it as diagnostic artifacts:
+// Performance is SOP's measurement, read from its diagnostic artifacts:
 //
 //	.agent-sdlc/runs/<task-id>/metrics.json   per task (agentic-sop perf.Task)
 //	.agent-sdlc/runs/<plan-id>/metrics.json   per run  (agentic-sop perf.Run)
 //	.agent-sdlc/runs/<task-id>/report.json    the task's "performance" field
 //
-// The controller only READS and PROJECTS these values. It starts no timer,
-// derives no lifecycle duration from its own clock, an HTTP request, a polling
-// interval, a task-status transition, or process-local state, and stores no
-// authoritative performance state. Performance is diagnostic metadata only: it
-// never influences task status, selection, retry, recovery, approval,
-// reconciliation, validation, review, quality gating, or routing. The controller
-// therefore never decides whether a task advances from anything in this file.
-//
-// Missing-data rule: when SOP persisted no performance record (a task that never
-// ran, a run that predates instrumentation, or an unreadable/malformed artifact)
-// the record is absent (Present=false) and every field stays at its zero value.
-// The controller never fabricates a zero-duration measurement and never
-// zero-fills an absent one, so a renderer can show an explicit absence instead of
-// a misleading row of 0s.
+// The controller starts no timer and never lets performance influence a
+// lifecycle decision. A missing record is Present=false, never zero-filled.
 
-// SOP's stage and validation-category keys, mirroring agentic-sop
-// internal/perf (StagesMS/ValidationMS map keys). They are SOP's own vocabulary;
-// the controller uses them only to look values up.
+// SOP's StagesMS / ValidationMS map keys (agentic-sop internal/perf).
 const (
 	perfStagePlan       = "plan"
 	perfStageImplement  = "implement"
@@ -48,38 +28,28 @@ const (
 	perfCategoryLint  = "lint"
 )
 
-// metricsFileName is the artifact SOP writes for both a task's and a run's
-// performance record.
 const metricsFileName = "metrics.json"
 
-// Performance is the controller-facing projection of SOP's persisted per-task
-// performance record (agentic-sop internal/perf.Task). Every duration is a SOP
-// measurement reported verbatim; the controller computes none of them.
+// Performance projects SOP's per-task record (perf.Task) verbatim.
 type Performance struct {
-	// Present is true when SOP persisted a performance record carrying at least
-	// one measurement or count. When false the remaining fields are zero and a
-	// renderer must show an explicit absence, never a 0s measurement.
+	// Present is true when the record carries at least one measurement or count.
 	Present bool
 
-	// Total is the task's wall-clock duration SOP measured.
 	Total time.Duration
 
-	// Stage durations (SOP's StagesMS), each zero when SOP recorded no time in
-	// that stage (SOP omits an unmeasured stage; the zero is an absence, not a
-	// measured 0).
+	// Stage durations (StagesMS); zero means SOP recorded none.
 	Plan       time.Duration
 	Implement  time.Duration
 	Validation time.Duration
 	Review     time.Duration
 	Fix        time.Duration
 
-	// Validation breakdown (SOP's ValidationMS): the build/test/lint split of the
-	// Validation stage. Zero when SOP recorded no per-category time.
+	// Validation breakdown (ValidationMS).
 	Build time.Duration
 	Test  time.Duration
 	Lint  time.Duration
 
-	// Operation counts SOP recorded (agentic-sop perf.Counts), reported verbatim.
+	// Operation counts (perf.Counts).
 	AgentCalls        int
 	AgentCallsAvoided int
 	ValidationRuns    int
@@ -90,57 +60,36 @@ type Performance struct {
 	PlanRepairs       int
 }
 
-// Agent is the task's agent time as SOP's own report defines it: the plan,
-// implement, and fix stages. It is arithmetic over SOP-recorded durations (the
-// same category rule agentic-sop's perf.Run.CategoryMS applies), not a new
-// measurement.
+// Agent is plan + implement + fix, SOP's own category rule.
 func (p Performance) Agent() time.Duration { return p.Plan + p.Implement + p.Fix }
 
-// CategoryShare is one measured category's duration and its whole-percent share
-// of the measured stage time. It is presentation only: arithmetic over
-// SOP-recorded durations that carries no controller judgement (it never labels a
-// category slow, bad, or needing optimization).
+// CategoryShare is one category's duration and whole-percent share of the
+// measured stage time. Presentation only.
 type CategoryShare struct {
-	// Name is the category label (Agent / Validation / Review).
-	Name string
-	// Duration is the category's SOP-measured total.
+	Name     string // Agent / Validation / Review
 	Duration time.Duration
-	// Percent is Duration's whole-percent share of the measured stage time,
-	// rounded the same way SOP's own report rounds it.
-	Percent int
+	Percent  int
 }
 
-// Shares returns the agent/validation/review split SOP's own report renders, with
-// each category's whole-percent share of the measured stage time. It is
-// arithmetic over SOP-recorded durations only. When no stage time was measured it
-// returns nil, so a renderer shows no percentage rather than 0%.
+// Shares returns the agent/validation/review split, or nil when nothing was
+// measured (so no 0% is shown).
 func (p Performance) Shares() []CategoryShare {
 	return categoryShares(p.Agent(), p.Validation, p.Review)
 }
 
-// PlanPerformance is the controller-facing projection of SOP's persisted
-// plan-level performance aggregate (agentic-sop internal/perf.Run), written by a
-// full `sop run` at .agent-sdlc/runs/<plan-id>/metrics.json.
+// PlanPerformance projects SOP's plan-level aggregate (perf.Run) at
+// .agent-sdlc/runs/<plan-id>/metrics.json.
 type PlanPerformance struct {
-	// Present is true when SOP persisted a run aggregate for the active plan.
 	Present bool
-	// PlanID is SOP's recorded plan identity the aggregate belongs to
-	// (plan.meta.json "plan_id").
-	PlanID string
-	// Tasks is the number of task records SOP folded into the aggregate.
-	Tasks int
-	// Total is the run's wall-clock duration SOP measured.
-	Total time.Duration
-	// Agent/Validation/Review are the measured category totals across the run's
-	// task records, using SOP's own category rule (agent = plan + implement +
-	// fix). They are arithmetic over SOP-recorded durations, not a new
-	// measurement; the per-run operation counts below come straight from SOP's
-	// already-aggregated record.
+	PlanID  string // plan.meta.json "plan_id"
+	Tasks   int    // task records folded into the aggregate
+	Total   time.Duration
+	// Category totals summed over the task records (agent = plan+implement+fix).
 	Agent      time.Duration
 	Validation time.Duration
 	Review     time.Duration
 
-	// Operation counts SOP already aggregated for the run (perf.Run.Counts).
+	// Counts SOP already aggregated (perf.Run.Counts).
 	AgentCalls        int
 	AgentCallsAvoided int
 	ValidationRuns    int
@@ -151,14 +100,11 @@ type PlanPerformance struct {
 	PlanRepairs       int
 }
 
-// Shares returns the run's agent/validation/review split with whole-percent
-// shares, or nil when no stage time was measured.
+// Shares is Performance.Shares for the run.
 func (p PlanPerformance) Shares() []CategoryShare {
 	return categoryShares(p.Agent, p.Validation, p.Review)
 }
 
-// categoryShares is the single place the agent/validation/review share is
-// derived, so a task and a run view cannot disagree about the arithmetic.
 func categoryShares(agent, validation, review time.Duration) []CategoryShare {
 	measured := agent + validation + review
 	if measured <= 0 {
@@ -171,8 +117,7 @@ func categoryShares(agent, validation, review time.Duration) []CategoryShare {
 	}
 }
 
-// percentOf rounds part/whole to a whole percent, matching agentic-sop's own
-// percentage rule so the controller's share cannot differ from SOP's report.
+// percentOf rounds like agentic-sop's report so the numbers match.
 func percentOf(part, whole time.Duration) int {
 	w := whole.Milliseconds()
 	if w <= 0 {
@@ -202,8 +147,7 @@ type taskMetricsDoc struct {
 	Counts       metricsCountsDoc `json:"counts"`
 }
 
-// runMetricsDoc mirrors agentic-sop perf.Run's JSON encoding (the plan-level
-// aggregate).
+// runMetricsDoc mirrors agentic-sop perf.Run's JSON encoding.
 type runMetricsDoc struct {
 	StartedAt time.Time        `json:"started_at"`
 	TotalMS   int64            `json:"total_ms"`
@@ -213,9 +157,7 @@ type runMetricsDoc struct {
 
 func msToDuration(ms int64) time.Duration { return time.Duration(ms) * time.Millisecond }
 
-// performanceFromTaskDoc projects a parsed perf.Task record. ok is false when the
-// record carries no measurement, so a present-but-empty document is never
-// rendered as a real measurement.
+// performanceFromTaskDoc returns ok=false for a record with no measurement.
 func performanceFromTaskDoc(doc taskMetricsDoc) (Performance, bool) {
 	p := Performance{
 		Total:             msToDuration(doc.TotalMS),
@@ -243,8 +185,6 @@ func performanceFromTaskDoc(doc taskMetricsDoc) (Performance, bool) {
 	return p, true
 }
 
-// hasAny reports whether a projected record carries at least one SOP-measured
-// value, so a present-but-empty document is treated as absent.
 func (p Performance) hasAny() bool {
 	return p.Total > 0 || p.Plan > 0 || p.Implement > 0 || p.Validation > 0 ||
 		p.Review > 0 || p.Fix > 0 ||
@@ -253,16 +193,8 @@ func (p Performance) hasAny() bool {
 		p.FixCycles != 0 || p.PlanRepairs != 0
 }
 
-// Performance returns the latest performance record SOP persisted for a task,
-// read-only. It first reads SOP's per-task metrics artifact
-// (.agent-sdlc/runs/<task-id>/metrics.json); when that artifact is absent or
-// unreadable it falls back to the redundant performance field of the task's
-// report.json, matching SOP's own read order. A missing or malformed record
-// yields Present=false and never an error: a task that never ran, and a run that
-// predates performance instrumentation, simply have no performance record.
-//
-// It reads files only: it opens no timer, writes nothing under .agent-sdlc, and
-// mutates no SOP state.
+// Performance reads the task's metrics.json, falling back to report.json's
+// "performance" field (SOP's own read order). Missing or malformed is absent.
 func (s *Store) Performance(taskID string) Performance {
 	var doc taskMetricsDoc
 	if readJSON(filepath.Join(s.runDir(taskID), metricsFileName), &doc) {
@@ -270,7 +202,6 @@ func (s *Store) Performance(taskID string) Performance {
 			return p
 		}
 	}
-	// Fallback: SOP embeds the same task record in report.json's "performance".
 	var rep struct {
 		Performance taskMetricsDoc `json:"performance"`
 	}
@@ -282,13 +213,8 @@ func (s *Store) Performance(taskID string) Performance {
 	return Performance{}
 }
 
-// PlanPerformance reads SOP's plan-level performance aggregate for the active
-// plan, read-only. The plan identity comes from SOP's recorded plan.meta.json
-// ("plan_id"), never from a heuristic or a filename guess; when SOP recorded no
-// plan, or persisted no aggregate for it, the record is absent (Present=false)
-// rather than guessed.
-//
-// Like Performance it reads files only and mutates no SOP state.
+// PlanPerformance reads the aggregate for plan.meta.json's plan_id; no plan or
+// no aggregate is absent.
 func (s *Store) PlanPerformance() PlanPerformance {
 	var meta planMeta
 	if !readJSON(filepath.Join(s.root, ".agent-sdlc", "plan.meta.json"), &meta) {
@@ -305,10 +231,6 @@ func (s *Store) PlanPerformance() PlanPerformance {
 	return planPerformanceFromRunDoc(planID, doc)
 }
 
-// planPerformanceFromRunDoc projects a parsed perf.Run aggregate. The per-run
-// counts come straight from SOP's already-aggregated record; only the
-// agent/validation/review category split is summed from the task records, using
-// SOP's own category rule.
 func planPerformanceFromRunDoc(planID string, doc runMetricsDoc) PlanPerformance {
 	p := PlanPerformance{
 		PlanID:            planID,
@@ -335,7 +257,6 @@ func planPerformanceFromRunDoc(planID string, doc runMetricsDoc) PlanPerformance
 	return p
 }
 
-// hasAny reports whether the aggregate carries at least one SOP-measured value.
 func (p PlanPerformance) hasAny() bool {
 	return len(p.PlanID) > 0 && (p.Tasks > 0 || p.Total > 0 || p.Agent > 0 ||
 		p.Validation > 0 || p.Review > 0 ||

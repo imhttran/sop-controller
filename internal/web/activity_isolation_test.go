@@ -105,7 +105,7 @@ func TestActivityTransportIsolation(t *testing.T) {
 
 	// (4) Force a transport write failure directly against the same read path, so
 	// the guarantee does not rest only on client cancellation.
-	client, err := sopclient.New([]string{root}, bin, time.Minute)
+	client, err := sopclient.New([]string{root}, withApprovals(t, bin), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

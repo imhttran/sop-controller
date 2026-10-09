@@ -21,9 +21,9 @@ scenarios were **NOT EXERCISED** (readiness **NOT READY**).
 | `Client.Projects` | read `tasks` grouped by status (`state.db`) |
 | `Client.Project` | read `tasks` + `task_dependencies` (`state.db`) and `.agent-sdlc/plan.meta.json` |
 | `Client.Task` | read `tasks`, `task_attempts`, `handoffs` (`state.db`) and run artifacts (`state.json`, `report.json`, `classification.json`, `validation.json`, `review.json`, `activity.jsonl`, `checkpoint.json`, `metrics.json`) |
-| `Client.Activity` | read `.agent-sdlc/runs/*/activity.jsonl` |
+| `Client.ActivityWindow` / `Client.TaskActivityView` | read `.agent-sdlc/runs/*/activity.jsonl` |
 | `Client.PlanSource` | read `.agent-sdlc/plan.meta.json` |
-| `Client.Approvals` | read `.agent-sdlc/approvals.json` (via `sop approvals --json`) |
+| `Client.Approvals` | `sop approvals --json` stdout |
 | `Client.Performance` | read `.agent-sdlc/runs/<task>/metrics.json` and the plan-level aggregate |
 | `Client.Root` | in-memory project-root lookup (no SOP read) |
 
@@ -41,7 +41,7 @@ All reads use `store.go` (open `mode=ro`) and `artifacts.go`/`run.go`
 | `Client.RetryAll` | `sop retry --all` |
 | `Client.Reconcile` | `sop reconcile <PLAN.md>` |
 | `Client.ReportTask` | `sop report <task>` |
-| `Client.Approvals` / `Client.RefreshApprovals` | `sop approvals --json` |
+| `Client.Approvals` | `sop approvals --json` |
 | `Client.ApproveTask` | `sop approve <task-id> [--by NAME] [--note TEXT]` |
 | `Client.DeclineTask` | `sop decline <task-id> [--by NAME] [--note TEXT]` |
 | `Client.AcceptChangedTask(s)` | `sop reconcile <PLAN.md> --accept-changed <TASK_ID> ...` |
@@ -57,7 +57,7 @@ All reads use `store.go` (open `mode=ro`) and `artifacts.go`/`run.go`
 | `GetPlan` | `PlanSource` | existing |
 | `GetTasks` | `Project` | existing |
 | `GetTask` | `Task` | existing |
-| `GetTaskActivity` | `Activity`, `Task` | existing |
+| `GetTaskActivity` | `ActivityWindow`, `TaskActivityView`, `Task` | existing |
 | `GetTaskProgress` | `Project` (`ProjectDetail.Summary`) | existing |
 | `GetApprovals` | `Approvals`, `Tasks`, `Task` | existing |
 | `GetTaskReport` | `ReportTask` | existing |
@@ -74,10 +74,8 @@ All reads use `store.go` (open `mode=ro`) and `artifacts.go`/`run.go`
 ## Gaps
 
 - **`CancelRun`** — no SOP application operation exists (`sop cancel` does not
-  exist). Recorded as a gap: `Client.CancelRun` returns
-  `ErrOperationUnsupported`. Not implemented in the controller and not removed
-  from the contract. Availability (`CancelOperations()`) is derived from
-  `Boundary()`, so it flips to supported automatically once SOP exposes the verb.
+  exist). Recorded as a gap: the controller has no cancel
+  method, route, or control, and not removed from the contract.
 
 No new orchestration service is proposed for the gap: filling it requires a
 SOP-side lifecycle operation, not controller logic.

@@ -158,23 +158,6 @@
                 </div>
                 {{if $active}}
                 <div class="actions">
-                    {{if .CancelApplicable}}
-                    <form
-                        class="inline"
-                        hx-post="/projects/{{.Project.Summary.ID}}/commands/cancel"
-                        hx-target="#cmd"
-                        hx-swap="innerHTML"
-                    >
-                        <input type="hidden" name="csrf" value="{{.CSRF}}" />
-                        <button
-                            class="btn danger"
-                            hx-disabled-elt="this"
-                            title="Stop the active run (sop cancel)"
-                        >
-                            Stop
-                        </button>
-                    </form>
-                    {{else}}
                     <p class="muted">
                         Stop: <span class="badge s-unavailable">{{unavailable}}</span>
                         <span class="small"
@@ -183,7 +166,6 @@
                             controller cannot simulate.</span
                         >
                     </p>
-                    {{end}}
                 </div>
                 {{end}}
                 <div id="cmd"></div>

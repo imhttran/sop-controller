@@ -155,7 +155,7 @@ func TestTaskDetailExposesPerformance(t *testing.T) {
 	writeArtifact(t, root, "t1", "metrics.json", taskMetricsFixture)
 	st := openPerfStore(t, root)
 
-	d, err := st.Task(context.Background(), "t1", st.Approvals())
+	d, err := st.Task(context.Background(), "t1", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,20 +243,6 @@ func TestPerformanceShares(t *testing.T) {
 	onlyCounts := Performance{Present: true, AgentCalls: 3}
 	if onlyCounts.Shares() != nil {
 		t.Errorf("Shares() = %v, want nil when no stage time was measured", onlyCounts.Shares())
-	}
-}
-
-// The boundary records the performance read as a supported, read-only operation.
-func TestBoundaryRecordsPerformanceRead(t *testing.T) {
-	d, ok := Lookup(OpGetTaskPerformance)
-	if !ok {
-		t.Fatal("OpGetTaskPerformance is not in the boundary")
-	}
-	if d.Status != StatusSupported || d.EntryPoint == "" || d.SOPOperation == "" || d.Reason != "" {
-		t.Fatalf("descriptor = %+v, want a supported read with an entry point and no gap reason", d)
-	}
-	if len(d.SOPVerbs) != 0 {
-		t.Errorf("SOPVerbs = %v, want none (performance is a read, not a CLI verb)", d.SOPVerbs)
 	}
 }
 

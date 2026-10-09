@@ -47,14 +47,6 @@ func mustCanon(t *testing.T, p string) string {
 	return c
 }
 
-func rootsOf(ps []Project) []string {
-	out := make([]string, 0, len(ps))
-	for _, p := range ps {
-		out = append(out, p.Root)
-	}
-	return out
-}
-
 func idsOf(ps []Project) []string {
 	out := make([]string, 0, len(ps))
 	for _, p := range ps {

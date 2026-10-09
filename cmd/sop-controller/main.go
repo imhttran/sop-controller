@@ -17,9 +17,8 @@ func main() {
 	config.LoadEnvFiles()
 	cfg := config.Load()
 
-	// Merge explicit project roots with projects discovered beneath the configured
-	// workspace roots. Discovery is an allowlist: it only looks under
-	// SOP_CONTROLLER_WORKSPACES, never the wider filesystem.
+	// Merge explicit roots with projects discovered under SOP_CONTROLLER_WORKSPACES
+	// (an allowlist, never the wider filesystem).
 	report, err := config.ResolveReport(cfg.ProjectRoots, cfg.Workspaces, cfg.DiscoveryDepth)
 	if err != nil {
 		log.Fatalf("project discovery: %v", err)

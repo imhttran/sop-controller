@@ -10,21 +10,12 @@ import (
 	"time"
 )
 
-// AttentionIntervalDefault is the documented short default cadence at which the
-// live-progress transports re-read SOP's reported human-decision gate, so a
-// newly recorded gate becomes visible promptly (a small multiple of this
-// interval) rather than after an arbitrary long wait. It is deliberately short
-// and there is no multi-minute fallback anywhere.
+// AttentionIntervalDefault is how often live transports re-read SOP's gates.
 const AttentionIntervalDefault = time.Second
 
-// AttentionIntervalFloor is the lower bound the resolved attention cadence is
-// clamped to. A configured value below it is raised to it, so the cadence can
-// never be zero/negative (which would busy-poll) while still guaranteeing
-// promptness.
+// AttentionIntervalFloor keeps a configured cadence from busy-polling.
 const AttentionIntervalFloor = 250 * time.Millisecond
 
-// AttentionPollEnv is the environment variable that configures the short
-// attention-poll cadence.
 const AttentionPollEnv = "SOP_CONTROLLER_ATTENTION_POLL"
 
 // Config is read from the environment (optionally seeded from .env / .env.dev).
@@ -33,9 +24,7 @@ type Config struct {
 	Addr string
 	// ProjectRoots are directories that each contain a .agent-sdlc/ SOP state.
 	ProjectRoots []string
-	// Workspaces are directories whose SOP projects are discovered by scanning
-	// for .agent-sdlc/config.yaml. They are an explicit allowlist, never an
-	// implicit filesystem crawl.
+	// Workspaces are an explicit allowlist scanned for .agent-sdlc/config.yaml.
 	Workspaces []string
 	// DiscoveryDepth bounds how far below a workspace root discovery descends.
 	DiscoveryDepth int
@@ -45,11 +34,7 @@ type Config struct {
 	CommandTimeout time.Duration
 	// PollInterval is the default HTMX poll cadence for active views.
 	PollInterval time.Duration
-	// AttentionInterval is the short, configurable cadence at which the
-	// live-progress transports re-read SOP's reported human-decision gate so a
-	// newly recorded gate surfaces promptly. It governs only how often SOP is
-	// re-read; it is never used to infer a gate from inactivity, and it is never
-	// a fixed multi-minute wait.
+	// AttentionInterval is the gate re-read cadence (see ResolveAttentionInterval).
 	AttentionInterval time.Duration
 	// AllowNetwork permits binding to a non-loopback address (requires AccessToken).
 	AllowNetwork bool
@@ -100,11 +85,8 @@ func LoadEnvFiles() {
 func Load() Config {
 	projectEnv := strings.TrimSpace(os.Getenv("SOP_CONTROLLER_PROJECTS"))
 	workspaceEnv := strings.TrimSpace(os.Getenv("SOP_CONTROLLER_WORKSPACES"))
-	// Explicit projects stay backward compatible: when neither variable is set
-	// the controller observes the current directory. When workspace roots are
-	// configured they are sufficient on their own, so the "." default is not
-	// forced (which would otherwise fail when the controller runs outside a
-	// project).
+	// With neither variable set, observe the current directory. Workspaces alone
+	// are enough, so "." is not forced on them.
 	projectRoots := splitList(projectEnv)
 	if projectEnv == "" && workspaceEnv == "" {
 		projectRoots = []string{"."}
@@ -131,19 +113,8 @@ func Load() Config {
 	return c
 }
 
-// ResolveAttentionInterval turns the raw attention-poll setting into the
-// resolved short attention cadence.
-//
-// Contract:
-//   - empty or unparseable input resolves to AttentionIntervalDefault (the
-//     documented short default), never to a long wait;
-//   - a positive input is clamped up to AttentionIntervalFloor so the cadence is
-//     always a bounded, non-zero short interval;
-//   - the result is never a fixed multi-minute wait.
-//
-// The cadence governs only how often the existing live-progress transports
-// re-read SOP's reported gate. It is never consulted to infer a gate from
-// inactivity.
+// ResolveAttentionInterval: empty or unparseable means AttentionIntervalDefault;
+// anything else is clamped up to AttentionIntervalFloor.
 func ResolveAttentionInterval(raw string) time.Duration {
 	d, err := time.ParseDuration(strings.TrimSpace(raw))
 	if err != nil || d <= 0 {
@@ -205,9 +176,7 @@ func intOr(key string, fallback int) int {
 	return fallback
 }
 
-// splitList parses a comma-separated path list, dropping blank entries. It never
-// substitutes a default: callers decide whether an empty list means "none" or
-// "the current directory".
+// splitList splits a comma-separated list, dropping blanks; callers pick defaults.
 func splitList(v string) []string {
 	parts := strings.Split(v, ",")
 	out := make([]string, 0, len(parts))

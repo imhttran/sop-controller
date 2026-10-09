@@ -30,16 +30,16 @@ func TestDecisionDelegatesToSOPVerbs(t *testing.T) {
 		run  func() error
 		want []string
 	}{
-		{"approve no metadata", func() error { return c.ApproveTask(ctx, pid, "t2") }, []string{"approve", "t2"}},
-		{"decline no metadata", func() error { return c.DeclineTask(ctx, pid, "t2") }, []string{"decline", "t2"}},
+		{"approve no metadata", func() error { return c.ApproveTask(ctx, pid, "t2", DecisionOptions{}) }, []string{"approve", "t2"}},
+		{"decline no metadata", func() error { return c.DeclineTask(ctx, pid, "t2", DecisionOptions{}) }, []string{"decline", "t2"}},
 		{"approve by only", func() error {
-			return c.ApproveTaskWithOptions(ctx, pid, "t2", DecisionOptions{By: "alice"})
+			return c.ApproveTask(ctx, pid, "t2", DecisionOptions{By: "alice"})
 		}, []string{"approve", "t2", "--by", "alice"}},
 		{"approve note only", func() error {
-			return c.ApproveTaskWithOptions(ctx, pid, "t2", DecisionOptions{Note: "looks-good"})
+			return c.ApproveTask(ctx, pid, "t2", DecisionOptions{Note: "looks-good"})
 		}, []string{"approve", "t2", "--note", "looks-good"}},
 		{"decline by and note", func() error {
-			return c.DeclineTaskWithOptions(ctx, pid, "t2", DecisionOptions{By: "bob", Note: "nope"})
+			return c.DeclineTask(ctx, pid, "t2", DecisionOptions{By: "bob", Note: "nope"})
 		}, []string{"decline", "t2", "--by", "bob", "--note", "nope"}},
 	}
 	for _, tc := range cases {
@@ -77,7 +77,7 @@ func TestDecisionTaskIDPassedSafely(t *testing.T) {
 	// recording helper keeps it as one field; the real exec path always passes it
 	// as a single argv element regardless).
 	hostile := "t2;rm;`whoami`$(id)|cat"
-	if err := c.ApproveTask(context.Background(), pid, hostile); err != nil {
+	if err := c.ApproveTask(context.Background(), pid, hostile, DecisionOptions{}); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	got := args()
@@ -105,8 +105,8 @@ func TestDecisionRejectionIsTyped(t *testing.T) {
 		run  func() error
 		verb string
 	}{
-		{"approve rejected", func() error { return c.ApproveTask(ctx, pid, "t2") }, "approve"},
-		{"decline rejected", func() error { return c.DeclineTask(ctx, pid, "t2") }, "decline"},
+		{"approve rejected", func() error { return c.ApproveTask(ctx, pid, "t2", DecisionOptions{}) }, "approve"},
+		{"decline rejected", func() error { return c.DeclineTask(ctx, pid, "t2", DecisionOptions{}) }, "decline"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.run()
@@ -141,7 +141,7 @@ func TestDeclineSuccessIsNotFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
-	if err := c.DeclineTask(context.Background(), config.ProjectID(root), "t2"); err != nil {
+	if err := c.DeclineTask(context.Background(), config.ProjectID(root), "t2", DecisionOptions{}); err != nil {
 		t.Fatalf("DeclineTask err = %v, want nil (a decline is not a failure)", err)
 	}
 }

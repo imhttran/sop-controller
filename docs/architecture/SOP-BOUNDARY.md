@@ -13,7 +13,7 @@ SOP operation, and which are unsupported gaps) lives in
 [../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md). This document
 is the authority for *why* that boundary exists and what must remain true.
 Despite its retained historical path, that contract is maintained as a current,
-non-normative rendering of the authoritative `Boundary()` descriptor. The
+non-normative operation table maintained against the code. The
 inventory is a current code-derived reference; verification reports remain
 point-in-time evidence and do not define current capabilities.
 
@@ -141,8 +141,8 @@ selection, retry, recovery, approval, or routing.
 ### Still unsupported (recorded gaps)
 
 Some conceptual operations remain **recorded gaps** because SOP exposes no
-application operation for them. They are kept in the contract and return
-`ErrOperationUnsupported` rather than being simulated:
+application operation for them. They are kept in the contract but have no
+controller method, route, or control, and are never simulated:
 
 - **`CancelRun`** — SOP exposes no cancellation application operation. The
   controller MUST NOT simulate cancellation or add a cancellation control; the
@@ -150,7 +150,7 @@ application operation for them. They are kept in the contract and return
 
 See [../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md)
 for the current operation table, the gap rationale, and the test matrix. That
-rendering is updated from `Boundary()` as controller capabilities change;
+table is updated as controller capabilities change;
 historical verification evidence is not a capability declaration.
 
 ## Human-Decision Domains

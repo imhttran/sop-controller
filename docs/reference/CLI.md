@@ -63,7 +63,7 @@ application operation for it: `CancelRun` (SOP exposes no cancellation
 operation). The controller must not advertise a control it cannot delegate; it is
 not offered in the UI. Per-task `AcceptChangedTask` is now supported and
 delegates to `sop reconcile <PLAN.md> --accept-changed <TASK_ID>`. The current
-operation table is maintained from `Boundary()` at the retained historical path
+operation table is maintained at the retained historical path
 [../history/CTRL001/BOUNDARY-CONTRACT.md](../history/CTRL001/BOUNDARY-CONTRACT.md).
 Controller-boundary support is distinct from external-binary verification:
 the reconciliation flags were **UNVERIFIED** in the recorded
@@ -119,7 +119,7 @@ external-binary flag support:
 | `/projects/{project}/commands/{verb}` verbs                                                       | [../architecture/OVERVIEW.md](../architecture/OVERVIEW.md) (command delegates)                                               |
 | `SOP_BIN`, `SOP_CONTROLLER_COMMAND_TIMEOUT`                                                       | [CONFIGURATION.md](CONFIGURATION.md)                                                                                         |
 
-No `CancelRun` route or control is documented, because SOP exposes no
+No cancel route or control exists, because SOP exposes no
 cancellation operation; cancellation remains unsupported until SOP exposes it.
 
 ## Related Documentation

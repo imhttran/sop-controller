@@ -29,75 +29,9 @@ func listingDocJSON(ids ...string) string {
 		`"removed_executed":[],"auto_reconciled":[]}`
 }
 
-// The contract names exactly the PRD's conceptual operations (plus the CTRL011
-// decline counterpart of ApproveTask, the CTRL012 reconcile-control operations
-// GetChangedExecutedTasks/AcceptChangedTask, and the C2-001 GetApprovals
-// authoritative approval read), once each. A supported operation cites an entry
-// point and a SOP application operation; an unsupported one records a reason.
-// Nothing else may enter the boundary.
-func TestBoundaryContractMatchesPRD(t *testing.T) {
-	want := []Operation{
-		OpGetPlan, OpGetTasks, OpGetTask, OpGetTaskActivity, OpGetTaskProgress,
-		OpGetApprovals,
-		OpGetTaskReport, OpStartOrContinueRun, OpRetryTask, OpCancelRun,
-		OpApproveTask, OpDeclineTask, OpReconcilePlan,
-		OpGetChangedExecutedTasks, OpAcceptChangedTask,
-		OpGetTaskPerformance,
-	}
-	got := Boundary()
-	if len(got) != len(want) {
-		t.Fatalf("boundary has %d operations, want %d", len(got), len(want))
-	}
-	seen := map[Operation]int{}
-	for i, d := range got {
-		if d.Operation != want[i] {
-			t.Fatalf("operation %d = %q, want %q", i, d.Operation, want[i])
-		}
-		seen[d.Operation]++
-		switch d.Status {
-		case StatusSupported:
-			if d.EntryPoint == "" || d.SOPOperation == "" {
-				t.Errorf("%s: supported operation is missing an entry point or SOP operation", d.Operation)
-			}
-			if d.Reason != "" {
-				t.Errorf("%s: supported operation must not carry a gap reason", d.Operation)
-			}
-		case StatusUnsupported:
-			if d.EntryPoint != "" {
-				t.Errorf("%s: unsupported operation must not name an entry point", d.Operation)
-			}
-			if d.Reason == "" {
-				t.Errorf("%s: unsupported operation must record a reason", d.Operation)
-			}
-		default:
-			t.Errorf("%s: unknown status %q", d.Operation, d.Status)
-		}
-	}
-	for _, op := range want {
-		if seen[op] != 1 {
-			t.Errorf("operation %s appears %d times, want exactly once", op, seen[op])
-		}
-	}
-}
-
-// The boundary exposes no scheduler operation: the controller never decides
-// which task runs next. Those decisions stay inside SOP.
-func TestBoundaryExposesNoSchedulerOperation(t *testing.T) {
-	for _, d := range Boundary() {
-		name := strings.ToLower(string(d.Operation))
-		for _, banned := range []string{"select", "schedule", "next", "choose", "pick"} {
-			if strings.Contains(name, banned) {
-				t.Errorf("boundary operation %q looks like a scheduler decision; SOP owns scheduling", d.Operation)
-			}
-		}
-	}
-}
-
-// CancelRun has no SOP application operation, so the boundary reports
-// ErrOperationUnsupported and records the gap instead of simulating it. (Approve,
-// Decline, and - as of C2-004 - accept-changed are supported and are covered
-// separately.)
-func TestUnsupportedOperationsReturnErrOperationUnsupported(t *testing.T) {
+// Every action delegates to SOP for a known project and reports the
+// not-found sentinel for an unknown one.
+func TestActionsRejectUnknownProject(t *testing.T) {
 	root := newProject(t)
 	// An active plan + reported changed set, so AcceptChangedTask reaches SOP
 	// rather than stopping at a precondition sentinel.
@@ -114,46 +48,17 @@ func TestUnsupportedOperationsReturnErrOperationUnsupported(t *testing.T) {
 	pid := config.ProjectID(root)
 	ctx := context.Background()
 
-	if err := c.CancelRun(ctx, pid); !errors.Is(err, ErrOperationUnsupported) {
-		t.Errorf("CancelRun err = %v, want ErrOperationUnsupported", err)
-	}
-	if err := c.CancelRun(ctx, pid); err == nil || !strings.Contains(err.Error(), string(OpCancelRun)) {
-		t.Errorf("CancelRun err = %v, want it to name %s", err, OpCancelRun)
-	}
-
-	// AcceptChangedTask is now supported: with all preconditions satisfied it
-	// delegates to SOP (the fake exits 0), never reporting a gap.
 	if err := c.AcceptChangedTask(ctx, pid, "t2"); err != nil {
-		t.Errorf("AcceptChangedTask err = %v, want nil (supported, delegated to SOP)", err)
+		t.Errorf("AcceptChangedTask err = %v, want nil (delegated to SOP)", err)
 	}
-
-	// An unknown project yields the not-found sentinel for every action, including
-	// the now-supported accept-changed.
-	if err := c.CancelRun(ctx, "nope"); !errors.Is(err, ErrProjectNotFound) {
-		t.Errorf("CancelRun(unknown project) err = %v, want ErrProjectNotFound", err)
-	}
-	if err := c.ApproveTask(ctx, "nope", "t2"); !errors.Is(err, ErrProjectNotFound) {
+	if err := c.ApproveTask(ctx, "nope", "t2", DecisionOptions{}); !errors.Is(err, ErrProjectNotFound) {
 		t.Errorf("ApproveTask(unknown project) err = %v, want ErrProjectNotFound", err)
 	}
-	if err := c.DeclineTask(ctx, "nope", "t2"); !errors.Is(err, ErrProjectNotFound) {
+	if err := c.DeclineTask(ctx, "nope", "t2", DecisionOptions{}); !errors.Is(err, ErrProjectNotFound) {
 		t.Errorf("DeclineTask(unknown project) err = %v, want ErrProjectNotFound", err)
 	}
 	if err := c.AcceptChangedTask(ctx, "nope", "t2"); !errors.Is(err, ErrProjectNotFound) {
 		t.Errorf("AcceptChangedTask(unknown project) err = %v, want ErrProjectNotFound", err)
-	}
-
-	// CancelRun remains the sole recorded gap.
-	d, ok := Lookup(OpCancelRun)
-	if !ok || d.Status != StatusUnsupported || d.Reason == "" {
-		t.Errorf("%s = %+v, want an unsupported descriptor with a reason", OpCancelRun, d)
-	}
-	// Approve, decline, and accept-changed are supported and must describe the SOP
-	// verb they delegate to (no gap reason).
-	for _, op := range []Operation{OpApproveTask, OpDeclineTask, OpAcceptChangedTask} {
-		d, ok := Lookup(op)
-		if !ok || d.Status != StatusSupported || d.Reason != "" || len(d.SOPVerbs) != 1 {
-			t.Errorf("%s = %+v, want a supported descriptor naming its SOP verb", op, d)
-		}
 	}
 }
 
@@ -214,165 +119,6 @@ func TestAcceptChangedTaskRejectsInvalidApprovals(t *testing.T) {
 	})
 }
 
-// ApprovalOperations must report that SOP exposes the approve and decline
-// application operations (C2-002) so the UI offers both controls. It derives the
-// answer from the same Boundary() source of truth, so it cannot drift from the
-// descriptors.
-func TestApprovalOperationsReportsSupported(t *testing.T) {
-	approve, decline := ApprovalOperations()
-	if !approve {
-		t.Error("ApprovalOperations approve = false, want true (SOP exposes `sop approve`)")
-	}
-	if !decline {
-		t.Error("ApprovalOperations decline = false, want true (SOP exposes `sop decline`)")
-	}
-}
-
-// ApprovalsOperations must report that SOP exposes the authoritative approval
-// listing read, so the approval surface is offered. It derives the answer from
-// the same Boundary() source of truth, so it cannot drift from the descriptor.
-func TestApprovalsOperationsReportsSupported(t *testing.T) {
-	if !ApprovalsOperations() {
-		t.Error("ApprovalsOperations() = false, want true (SOP exposes `approvals --json`)")
-	}
-	d, ok := Lookup(OpGetApprovals)
-	if !ok || d.Status != StatusSupported || d.EntryPoint == "" || d.SOPOperation == "" || d.Reason != "" {
-		t.Errorf("OpGetApprovals = %+v, want a supported descriptor with an entry point and no reason", d)
-	}
-}
-
-// CancelOperations must report that SOP exposes no cancellation application
-// operation, so the UI can refuse to offer a Stop control whose only possible
-// outcome is an unsupported error. It derives the answer from the same
-// Boundary() source of truth, so it cannot drift from the descriptor.
-func TestCancelOperationsReportsUnsupported(t *testing.T) {
-	if CancelOperations() {
-		t.Error("CancelOperations() = true, want false (SOP exposes no cancellation operation)")
-	}
-}
-
-// TestCancelSupportedDerivation proves the gating formula itself is correct in
-// both directions, not just against today's fixed unsupported descriptor: if
-// Boundary() ever records OpCancelRun as StatusSupported, CancelOperations
-// must flip to true with no code change, and an unknown operation must never
-// be reported as supported.
-func TestCancelSupportedDerivation(t *testing.T) {
-	cases := []struct {
-		name  string
-		d     Descriptor
-		found bool
-		want  bool
-	}{
-		{"unsupported", Descriptor{Operation: OpCancelRun, Status: StatusUnsupported}, true, false},
-		{"supported", Descriptor{Operation: OpCancelRun, Status: StatusSupported}, true, true},
-		{"not found", Descriptor{}, false, false},
-	}
-	for _, c := range cases {
-		if got := cancelSupported(c.d, c.found); got != c.want {
-			t.Errorf("%s: cancelSupported() = %v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
-// ReconcileOperations must report that SOP exposes a structured
-// changed-executed-task read (its authoritative `reconcile <PLAN.md>
-// --list-changed --json` listing) AND a per-task accept-changed application
-// operation (C2-004), so the UI offers the changed-task list and the per-task
-// approval control. It derives the answer from the same Boundary() source of
-// truth.
-func TestReconcileOperationsReportsListSupportedAcceptUnsupported(t *testing.T) {
-	listChanged, acceptChanged := ReconcileOperations()
-	if !listChanged {
-		t.Error("ReconcileOperations listChanged = false, want true (SOP's listing read works)")
-	}
-	if !acceptChanged {
-		t.Error("ReconcileOperations acceptChanged = false, want true (C2-004 delegates accept-changed to SOP)")
-	}
-}
-
-// TestReconcileOperationsDerivation proves the gating formula itself is correct
-// in both directions, not just against today's fixed supported descriptors: if
-// Boundary() ever records OpAcceptChangedTask (or the listing read) as
-// StatusUnsupported, ReconcileOperations must flip to false with no code change,
-// and an unknown operation must never be reported as supported.
-func TestReconcileOperationsDerivation(t *testing.T) {
-	cases := []struct {
-		name                   string
-		list, accept           Descriptor
-		listFound, acceptFound bool
-		wantList, wantAccept   bool
-	}{
-		{
-			"both supported",
-			Descriptor{Operation: OpGetChangedExecutedTasks, Status: StatusSupported},
-			Descriptor{Operation: OpAcceptChangedTask, Status: StatusSupported},
-			true, true, true, true,
-		},
-		{
-			"accept unsupported",
-			Descriptor{Operation: OpGetChangedExecutedTasks, Status: StatusSupported},
-			Descriptor{Operation: OpAcceptChangedTask, Status: StatusUnsupported},
-			true, true, true, false,
-		},
-		{
-			"list unsupported",
-			Descriptor{Operation: OpGetChangedExecutedTasks, Status: StatusUnsupported},
-			Descriptor{Operation: OpAcceptChangedTask, Status: StatusSupported},
-			true, true, false, true,
-		},
-		{
-			"not found",
-			Descriptor{}, Descriptor{}, false, false, false, false,
-		},
-	}
-	for _, c := range cases {
-		gotList, gotAccept := reconcileOperationsFromDescriptors(c.list, c.accept, c.listFound, c.acceptFound)
-		if gotList != c.wantList || gotAccept != c.wantAccept {
-			t.Errorf("%s: reconcileOperationsFromDescriptors() = %v,%v, want %v,%v", c.name, gotList, gotAccept, c.wantList, c.wantAccept)
-		}
-	}
-}
-
-// Lookup must return the same descriptor Boundary exposes for the CTRL012
-// operations, so the two surfaces cannot drift. Descriptors carry a slice
-// (SOPVerbs), so they are compared with reflect.DeepEqual rather than ==.
-func TestReconcileOperationDescriptorsMatchBoundary(t *testing.T) {
-	byOp := map[Operation]Descriptor{}
-	for _, d := range Boundary() {
-		byOp[d.Operation] = d
-	}
-
-	d, ok := Lookup(OpGetChangedExecutedTasks)
-	if !ok {
-		t.Fatalf("Lookup(%s) not found", OpGetChangedExecutedTasks)
-	}
-	if !reflect.DeepEqual(d, byOp[OpGetChangedExecutedTasks]) {
-		t.Errorf("Lookup(%s) = %+v, Boundary has %+v", OpGetChangedExecutedTasks, d, byOp[OpGetChangedExecutedTasks])
-	}
-	if d.Status != StatusSupported || d.EntryPoint == "" || d.SOPOperation == "" || d.Reason != "" {
-		t.Errorf("%s = %+v, want supported with an entry point and no reason", OpGetChangedExecutedTasks, d)
-	}
-	if !strings.Contains(d.SOPOperation, "--list-changed") || !strings.Contains(d.SOPOperation, "--json") {
-		t.Errorf("%s SOPOperation = %q, want it to name the `--list-changed --json` listing", OpGetChangedExecutedTasks, d.SOPOperation)
-	}
-
-	d, ok = Lookup(OpAcceptChangedTask)
-	if !ok {
-		t.Fatalf("Lookup(%s) not found", OpAcceptChangedTask)
-	}
-	if !reflect.DeepEqual(d, byOp[OpAcceptChangedTask]) {
-		t.Errorf("Lookup(%s) = %+v, Boundary has %+v", OpAcceptChangedTask, d, byOp[OpAcceptChangedTask])
-	}
-	if d.Status != StatusSupported || d.EntryPoint == "" || d.Reason != "" {
-		t.Errorf("%s = %+v, want supported with an entry point and no reason", OpAcceptChangedTask, d)
-	}
-	if !strings.Contains(d.SOPOperation, "--accept-changed") {
-		t.Errorf("%s SOPOperation = %q, want it to name the `--accept-changed` flag", OpAcceptChangedTask, d.SOPOperation)
-	}
-}
-
-// The read operations report SOP's own persisted values, verbatim, and map the
-// not-found cases to the boundary sentinels.
 func TestReadOperationsReportSOPValues(t *testing.T) {
 	root := newProject(t)
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -432,11 +178,7 @@ func TestReadOperationsReportSOPValues(t *testing.T) {
 	}
 
 	// GetTaskActivity
-	ev, err := c.Activity(ctx, pid, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(ev) != 1 || ev[0].Stage != "IMPLEMENT" {
+	if ev := task.Activity; len(ev) != 1 || ev[0].Stage != "IMPLEMENT" {
 		t.Errorf("GetTaskActivity = %+v, want one IMPLEMENT event", ev)
 	}
 
@@ -446,9 +188,6 @@ func TestReadOperationsReportSOPValues(t *testing.T) {
 	}
 	if _, err := c.Task(ctx, pid, "missing"); !errors.Is(err, ErrTaskNotFound) {
 		t.Errorf("Task(unknown) err = %v, want ErrTaskNotFound", err)
-	}
-	if _, err := c.Activity(ctx, "nope", 0); !errors.Is(err, ErrProjectNotFound) {
-		t.Errorf("Activity(unknown project) err = %v, want ErrProjectNotFound", err)
 	}
 }
 
@@ -475,8 +214,8 @@ func TestCommandOperationsDelegateToSOP(t *testing.T) {
 		{"retry-task", "retry", func() error { return c.Retry(ctx, pid, "t2") }},
 		{"get-task-report", "report", func() error { _, err := c.ReportTask(ctx, pid, "t2"); return err }},
 		{"reconcile-plan", "reconcile", func() error { _, err := c.Reconcile(ctx, pid, "docs/PLAN.md"); return err }},
-		{"approve-task", "approve", func() error { return c.ApproveTask(ctx, pid, "t2") }},
-		{"decline-task", "decline", func() error { return c.DeclineTask(ctx, pid, "t2") }},
+		{"approve-task", "approve", func() error { return c.ApproveTask(ctx, pid, "t2", DecisionOptions{}) }},
+		{"decline-task", "decline", func() error { return c.DeclineTask(ctx, pid, "t2", DecisionOptions{}) }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -493,7 +232,7 @@ func TestCommandOperationsDelegateToSOP(t *testing.T) {
 
 // The authoritative approval listing read delegates to `sop approvals --json`
 // through the CLI boundary; the controller parses no `sop approval` human text.
-func TestApprovalsRefreshDelegatesToSOP(t *testing.T) {
+func TestApprovalsDelegatesToSOP(t *testing.T) {
 	root := newProject(t)
 	bin, args := fakeSop(t)
 	c, err := New([]string{root}, bin, time.Minute)
@@ -504,11 +243,10 @@ func TestApprovalsRefreshDelegatesToSOP(t *testing.T) {
 	pid := config.ProjectID(root)
 	ctx := context.Background()
 
-	// fakeSop exits 0 with empty output, so RefreshApprovals gets a non-listing
-	// (empty) document: a well-formed empty approvals doc, not an error.
-	listing, err := c.RefreshApprovals(ctx, pid)
+	// fakeSop exits 0 with empty output: a well-formed empty listing, not an error.
+	listing, err := c.Approvals(ctx, pid)
 	if err != nil {
-		t.Fatalf("RefreshApprovals: %v", err)
+		t.Fatalf("Approvals: %v", err)
 	}
 	if len(listing.Entries) != 0 {
 		t.Fatalf("listing = %+v, want no entries from empty fake output", listing)
@@ -517,8 +255,8 @@ func TestApprovalsRefreshDelegatesToSOP(t *testing.T) {
 		t.Fatalf("sop argv = %v, want [approvals --json]", got)
 	}
 
-	if _, err := c.RefreshApprovals(ctx, "nope"); !errors.Is(err, ErrProjectNotFound) {
-		t.Errorf("RefreshApprovals(unknown project) err = %v, want ErrProjectNotFound", err)
+	if _, err := c.Approvals(ctx, "nope"); !errors.Is(err, ErrProjectNotFound) {
+		t.Errorf("Approvals(unknown project) err = %v, want ErrProjectNotFound", err)
 	}
 }
 
@@ -545,18 +283,15 @@ func TestBoundaryDoesNotMutateSOPPersistence(t *testing.T) {
 	_, _ = c.Projects(ctx)
 	_, _ = c.Project(ctx, pid)
 	_, _ = c.Task(ctx, pid, "t2")
-	_, _ = c.Activity(ctx, pid, 0)
 	_, _ = c.PlanSource(pid)
 	_, _ = c.Approvals(ctx, pid)
-	_, _ = c.RefreshApprovals(ctx, pid)
 	_ = c.Run(ctx, pid)
 	_ = c.Resume(ctx, pid)
 	_ = c.Retry(ctx, pid, "t2")
 	_, _ = c.ReportTask(ctx, pid, "t2")
 	_, _ = c.Reconcile(ctx, pid, "docs/PLAN.md")
-	_ = c.CancelRun(ctx, pid)
-	_ = c.ApproveTask(ctx, pid, "t2")
-	_ = c.DeclineTask(ctx, pid, "t2")
+	_ = c.ApproveTask(ctx, pid, "t2", DecisionOptions{})
+	_ = c.DeclineTask(ctx, pid, "t2", DecisionOptions{})
 	_, _ = c.ChangedTasks(ctx, pid)
 	_ = c.AcceptChangedTask(ctx, pid, "t2")
 

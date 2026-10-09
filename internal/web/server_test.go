@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -106,7 +107,7 @@ func newTestServerRootPoll(t *testing.T, sopBin string, poll time.Duration) (*ht
 		t.Fatal(err)
 	}
 
-	sop, err := sopclient.New([]string{root}, sopBin, time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, sopBin), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +377,7 @@ func TestCommandTimeout(t *testing.T) {
 func TestCommandTimeoutDoesNotMutateSOPLifecycleState(t *testing.T) {
 	_, id, root := newTestServerRoot(t, "sop")
 
-	sop, err := sopclient.New([]string{root}, "sop", time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, "sop"), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -999,7 +1000,7 @@ func TestAccessTokenValidation(t *testing.T) {
 	}
 	db.Close()
 
-	sop, err := sopclient.New([]string{root}, "sop", time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, "sop"), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1104,4 +1105,17 @@ func TestProjectViewBadgesExist(t *testing.T) {
 			t.Logf("Note: %s badge not in test data (this is okay if no tasks have that status)", status)
 		}
 	}
+}
+
+// withApprovals wraps a sop binary so `sop approvals --json` prints the
+// fixture's .agent-sdlc/approvals.json (cwd is the project root); every other
+// verb goes to bin.
+func withApprovals(t *testing.T, bin string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "sop")
+	script := "#!/bin/sh\nif [ \"$1\" = approvals ]; then cat .agent-sdlc/approvals.json 2>/dev/null; exit 0; fi\nexec " + strconv.Quote(bin) + " \"$@\"\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

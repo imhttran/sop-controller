@@ -96,7 +96,7 @@ when an executed task's definition changed. The retired
 `.agent-sdlc/reconcile.json` artifact is never read.
 
 **Cancel is not offered.** SOP exposes no cancellation application operation, so
-`CancelRun` remains unsupported until SOP exposes cancellation; the dashboard
+cancellation remains unsupported until SOP exposes it; the dashboard
 advertises no cancel control.
 
 ## Related Documentation

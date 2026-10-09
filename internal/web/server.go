@@ -15,17 +15,13 @@ type Options struct {
 	Views    *Views
 	StaticFS fs.FS
 	Poll     time.Duration
-	// Attention is the short, configurable cadence at which the live-progress
-	// transports re-read SOP's reported human-decision gate so a newly recorded
-	// gate is surfaced promptly. A zero value resolves to the documented short
-	// default; it is never a fixed multi-minute wait and is never used to infer a
-	// gate from inactivity.
+	// Attention is the gate re-read cadence for live transports; zero uses the
+	// short default.
 	Attention      time.Duration
 	CommandTimeout time.Duration
 	AllowNetwork   bool
 	AccessToken    string
-	// Discovery is the read-only project-discovery report for the /discovery
-	// diagnostics view. A zero value renders an empty report, not an error.
+	// Discovery feeds /discovery; zero renders an empty report.
 	Discovery config.DiscoveryReport
 }
 
@@ -43,13 +39,9 @@ func NewServer(opts Options) http.Handler {
 	mux.HandleFunc("GET /projects/{project}", h.project)
 	mux.HandleFunc("GET /projects/{project}/tasks", h.projectTasks)
 	mux.HandleFunc("GET /projects/{project}/activity", h.projectActivity)
-	// C2-006 project-level human-decision surface: a read-only aggregation of
-	// SOP-reported gates (approve/decline) and SOP-reported changed-executed
-	// tasks pending accept. The GET renders state only; every mutation it exposes
-	// is a POST to the existing task-scoped command routes below.
+	// C2-006 decisions surface (read-only; actions POST to the task routes below).
 	mux.HandleFunc("GET /projects/{project}/decisions", h.projectDecisions)
-	// Live activity delivery (CTRL007): an SSE stream and a bounded-poll
-	// fallback, both read-only windows over the persisted activity read.
+	// Live activity (CTRL007): SSE stream and bounded-poll fallback.
 	mux.HandleFunc("GET /projects/{project}/activity/stream", h.activityStream)
 	mux.HandleFunc("GET /projects/{project}/activity/window", h.activityWindow)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}", h.task)
@@ -66,20 +58,13 @@ func NewServer(opts Options) http.Handler {
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/retry-force", h.retryForceStatus)
 	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/report", h.reportTask)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/report", h.reportTaskStatus)
-	// CTRL011 human approval controls. These routes are the ONLY task-scoped
-	// approval surface, and they are reachable but inert unless SOP reports an
-	// approval boundary the controller can apply: the handlers pre-gate on
-	// Approval.Present && Approval.Applicable and refuse with 409 otherwise. The
-	// controller never approves or declines work itself; it delegates the action
-	// to SOP's application boundary (or, where SOP exposes none, starts no
-	// command at all). The GET status routes mirror the emitted polling URL so a
-	// rendered form's status fragment always resolves to a registered route.
+	// CTRL011 approval controls delegate to `sop approve` / `sop decline`; SOP
+	// validates the gate. GET status routes match the fragment's polling URL.
 	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/approve", h.approve)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/approve", h.approveStatus)
 	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/decline", h.decline)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/decline", h.declineStatus)
-	// CTRL012 per-task accept-changed approval. Delegates validation and the
-	// action to Client.AcceptChangedTask; see internal/web/handlers.go.
+	// CTRL012 per-task accept-changed; see Client.AcceptChangedTask.
 	mux.HandleFunc("POST /projects/{project}/tasks/{task}/commands/accept-changed", h.acceptChangedTask)
 	mux.HandleFunc("GET /projects/{project}/tasks/{task}/commands/accept-changed", h.acceptChangedTaskStatus)
 

@@ -13,17 +13,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Store reads SOP's authoritative state for one project. SOP owns the schema;
-// this package is the only place that knows it.
+// Store reads one project's SOP state; this package is the only place that
+// knows SOP's schema.
 type Store struct {
 	root string
 	db   *sql.DB
-	// checkpoints keeps the last SOP-reported checkpoint per task so a refresh
-	// that yields no new evidence does not regress known progress (CTRL010). It
-	// is an atomically-initialized pointer so a Store value copy shares one
-	// mutex+map (never copying the lock), and so lazy initialization from
-	// concurrent read paths (including a Store literal constructed outside
-	// OpenStore) cannot race on the field. See checkpointStore in
+	// checkpoints remembers the last reported checkpoint per task (CTRL010); see
 	// checkpoint_cache.go.
 	checkpoints checkpointStore
 }
@@ -52,28 +47,14 @@ func OpenStore(root string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-// ProjectID returns the stable identifier for this store's project. It is the
-// same identity discovery assigns, so configured and discovered projects are
-// indistinguishable to the rest of the controller.
+// ProjectID is the same identity discovery assigns.
 func (s *Store) ProjectID() string {
 	return config.ProjectID(s.root)
 }
 
-// Summary builds the FR-1 project overview from task statuses.
-//
-// The NeedsAttention count folds the same per-task human-decision signal
-// TaskSummary carries (so it can never drift from the list/detail views) with
-// any pending changed-executed task SOP reports. When the caller supplies the
-// SOP-reported changed set (changedTasks), those pending tasks are counted; when
-// SOP reports no set, no changed-task count is added and the absence is NOT
-// rendered as zero pending. The changed set itself is read from SOP's listing by
-// the caller (Client.ChangedTasks); the Store never reads the retired
-// reconcile.json artifact.
-//
-// The SOP-reported approval listing (approvals) is likewise supplied by the
-// caller, which obtained it from SOP's authoritative `sop approvals --json`
-// surface (Client.Approvals). The Store never infers a gate from task status,
-// run classification, or a controller-side artifact SOP does not write.
+// Summary builds the FR-1 overview. NeedsAttention counts tasks with a gate plus
+// pending changed tasks when SOP reported a changed set. The caller supplies both
+// SOP listings.
 func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks, approvals ApprovalsListing) (ProjectSummary, error) {
 	name, branch := s.projectMeta()
 	p := ProjectSummary{ID: s.ProjectID(), Name: name, Branch: branch}
@@ -127,20 +108,13 @@ func (s *Store) Summary(ctx context.Context, changedTasks ChangedTasks, approval
 	return p, nil
 }
 
-// Tasks returns every task with its dependencies resolved (FR-2).
-//
-// approvals is SOP's authoritative approval listing, supplied by the caller
-// (Client, which fetched it via `sop approvals --json`); it is shared with every
-// row so the list projection is never reconstructed per task and can never
-// disagree with TaskDetail.Approval. The Store does not read an approval
-// artifact SOP never writes.
+// Tasks returns every task with dependencies resolved (FR-2), projecting
+// NeedsHuman from the caller-supplied approval listing.
 func (s *Store) Tasks(ctx context.Context, approvals ApprovalsListing) ([]TaskSummary, error) {
 	deps, err := s.dependencyMap(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Share SOP's authoritative approval listing with every row.
-	listing := approvals
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, title, status, COALESCE(blocked_reason, ''), attempt, max_attempts, updated_at
 		FROM tasks ORDER BY id`)
@@ -164,8 +138,7 @@ func (s *Store) Tasks(ctx context.Context, approvals ApprovalsListing) ([]TaskSu
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	// Resolve dependencies and compute which tasks are still blocked by an
-	// incomplete dependency (FR-2 "why a task is not eligible to run").
+	// BlockedBy: dependencies not yet terminal (FR-2 "why not eligible").
 	for id, t := range byID {
 		t.Dependencies = deps[id]
 		for _, dep := range t.Dependencies {
@@ -173,18 +146,13 @@ func (s *Store) Tasks(ctx context.Context, approvals ApprovalsListing) ([]TaskSu
 				t.BlockedBy = append(t.BlockedBy, dep)
 			}
 		}
-		// Enrich with the latest run's stage and SOP's recovery disposition, then
-		// derive the human-decision signal from SOP's approval listing - the SAME
-		// listing entry TaskDetail.Approval uses - so the list can never disagree
-		// with the task detail view about which tasks need a human decision, and no
-		// controller-side inference over classification/stage/BLOCKED is performed.
 		ri := s.runInfo(id)
 		t.Stage = ri.Stage
 		if ri.Classification != nil {
 			t.Recovery = ri.Classification.Disposition
 		}
 		t.FixCycles = ri.FixCycles
-		t.NeedsHuman, t.ApprovalKind = taskNeedsHuman(listing, id)
+		t.NeedsHuman, t.ApprovalKind = taskNeedsHuman(approvals, id)
 	}
 	out := make([]TaskSummary, 0, len(order))
 	for _, id := range order {
@@ -193,13 +161,8 @@ func (s *Store) Tasks(ctx context.Context, approvals ApprovalsListing) ([]TaskSu
 	return out, nil
 }
 
-// Task returns one task with attempts, validation, review, and handoff (FR-3),
-// plus the CTRL003 structured status fields (run status, aggregate validation/
-// review/JEV status, and report reference).
-//
-// approvals is SOP's authoritative approval listing, supplied by the caller
-// (Client, from `sop approvals --json`); it is the same listing Store.Tasks
-// receives, so the detail and list views cannot disagree.
+// Task returns one task with attempts, validation, review, handoff, and the
+// CTRL003 status projections (FR-3). It uses the same approval listing as Tasks.
 func (s *Store) Task(ctx context.Context, id string, approvals ApprovalsListing) (TaskDetail, error) {
 	var d TaskDetail
 	var updated string
@@ -239,8 +202,6 @@ func (s *Store) Task(ctx context.Context, id string, approvals ApprovalsListing)
 	if h, err := s.handoff(ctx, id); err == nil {
 		d.Handoff = h
 	}
-	// Runs artifacts carry the run record, validation/review output, and the
-	// structured activity stream when SOP has executed the task.
 	d.Run = s.runInfo(id)
 	d.Activity = s.activity(id)
 	d.Stage, d.Recovery = d.Run.Stage, ""
@@ -253,40 +214,23 @@ func (s *Store) Task(ctx context.Context, id string, approvals ApprovalsListing)
 	d.Validation = s.readValidation(id)
 	d.Review = s.readReview(id)
 
-	// CTRL003: render-ready status projections. Each reports absence explicitly
-	// and never resolves to PASS without SOP-persisted evidence.
 	d.RunStatus = d.Run.Status()
 	d.ValidationStatus = aggregateValidation(d.Validation)
 	d.ReviewStatus = aggregateReview(d.Review)
 	d.QualityStatus = aggregateQuality(d.Run.JEV)
 	d.Report = s.ReportRef(id)
 
-	// CTRL010: SOP-reported checkpoint / bounded progress. Only the checkpoint
-	// value comes from a SOP artifact/activity read; the merge only prevents a
-	// transient re-read from regressing a recently known value, and is bounded in
-	// time and size so a retracted/reset checkpoint is not replayed forever.
+	// CTRL010: the merge keeps a transient empty re-read from regressing progress.
 	d.Checkpoint = s.mergeCheckpoint(id, s.Checkpoint(id))
 
-	// CTRL011 / C2-001: SOP-reported approval gate, projected from SOP's
-	// authoritative approval listing - the same listing Store.Tasks reads - so the
-	// detail and list views can never disagree. The controller never infers a gate.
-	listing := approvals
-	d.Approval = s.approval(d, listing)
-	// Mirror the list projection onto the embedded summary so TaskDetail carries
-	// the same NeedsHuman/ApprovalKind signal as TaskSummary.
-	d.TaskSummary.NeedsHuman, d.TaskSummary.ApprovalKind = taskNeedsHuman(listing, id)
+	d.Approval = s.approval(d, approvals)
+	// Mirror the gate onto the embedded summary so list and detail agree.
+	d.TaskSummary.NeedsHuman, d.TaskSummary.ApprovalKind = d.Approval.Present, d.Approval.Kind
 
-	// Performance is SOP's own persisted measurement for the latest run, read
-	// read-only. It is diagnostic only: it never feeds a lifecycle decision, and a
-	// task with no performance artifact simply carries an absent record.
 	d.Performance = s.Performance(id)
 	return d, nil
 }
 
-// mergeCheckpoint applies the bounded refresh-merge rule for the checkpoint
-// cache (CTRL010). It routes through the store's atomically-initialized cache so
-// a Store value constructed outside OpenStore still gets a usable cache and
-// concurrent read paths never race on the cache pointer.
 func (s *Store) mergeCheckpoint(taskID string, fresh CheckpointProgress) CheckpointProgress {
 	return s.checkpoints.get().merge(taskID, fresh)
 }
@@ -331,8 +275,7 @@ func (s *Store) handoff(ctx context.Context, id string) (*Handoff, error) {
 	return &h, nil
 }
 
-// taskIDs returns every persisted task id, for callers that only need to
-// enumerate tasks and not their summary or run artifacts.
+// taskIDs enumerates task ids without building summaries.
 func (s *Store) taskIDs(ctx context.Context) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id FROM tasks ORDER BY id`)
 	if err != nil {
@@ -384,9 +327,7 @@ func (s *Store) dependencyMap(ctx context.Context) (map[string][]string, error) 
 	return m, rows.Err()
 }
 
-// projectMeta reads the small, non-secret subset of .agent-sdlc/config.yaml we
-// display (project name and integration branch) through the shared parser, so the
-// store and discovery agree on how SOP configuration is interpreted.
+// projectMeta reads the project name and branch from .agent-sdlc/config.yaml.
 func (s *Store) projectMeta() (name, branch string) {
 	cfg, err := config.ReadProjectConfig(s.root)
 	if err != nil {

@@ -26,8 +26,7 @@ Every action it offers is a request handed to SOP's own operation.
 ## When a Human Gate Appears
 
 The controller presents a human gate **only when SOP reports one** in its
-authoritative approval listing (`sop approvals --json`, read back verbatim from
-`.agent-sdlc/approvals.json`). SOP's structured `status`/`disposition` on a
+authoritative approval listing (`sop approvals --json`, decoded verbatim). SOP's structured `status`/`disposition` on a
 listing entry is the sole source of truth for gate presence and applicability.
 
 `BLOCKED` alone, a `NEEDS_HUMAN` classification, a `WAITING_FOR_HUMAN` run

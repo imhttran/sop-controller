@@ -151,7 +151,7 @@ func newRunServer(t *testing.T, status string, artifacts map[string]string) (*ht
 		writeRun(t, root, "x1", name, content)
 	}
 
-	sop, err := sopclient.New([]string{root}, fakeRunSopBin(t), time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, fakeRunSopBin(t)), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

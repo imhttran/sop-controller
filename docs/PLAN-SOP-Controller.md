@@ -95,7 +95,7 @@ remaining acceptance criteria; SOP retains lifecycle and mutation authority.
 
 ### sop_application_api_boundary — EXISTS
 
-- Evidence: internal/sopclient/boundary.go defines Boundary()/Lookup() and delegated command operations; internal/sopclient/boundary_test.go exercises the contract and read-only persistence boundary.
+- Evidence: internal/sopclient (Client methods) defines the delegated read and command operations; internal/sopclient/boundary_test.go exercises them and the read-only persistence boundary.
 - Owner: controller presents and delegates; SOP owns workflow effects.
 - Gap: CancelRun remains unsupported; AcceptChangedTask is supported at the controller boundary, delegating to sop reconcile <PLAN.md> --accept-changed <TASK_ID>. External reconciliation-flag support was UNVERIFIED / NOT EXERCISED in the recorded C2-009 sandbox run.
 

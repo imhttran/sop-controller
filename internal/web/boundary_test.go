@@ -5,25 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"sop-controller/internal/sopclient"
 )
-
-// boundaryVerbs returns every sop CLI verb the documented boundary can drive,
-// including the FR-5/FR-6 supporting commands (validate, review) that also
-// delegate to SOP through internal/sopclient.
-func boundaryVerbs() map[string]bool {
-	verbs := map[string]bool{}
-	for _, d := range sopclient.Boundary() {
-		for _, v := range d.SOPVerbs {
-			verbs[v] = true
-		}
-	}
-	for _, v := range []string{"validate", "review"} {
-		verbs[v] = true
-	}
-	return verbs
-}
 
 // dashboardCommandRoutes is the command route table registered by NewServer
 // (internal/web/server.go). Every entry is a state-changing command the
@@ -77,7 +59,6 @@ func verbForRoute(path string) string {
 // which mirror server.go; the test fails if a route stops reaching its handler
 // (404/400) or drives a verb the boundary does not document.
 func TestDashboardCommandsResolveToBoundary(t *testing.T) {
-	verbs := boundaryVerbs()
 	srv, id, root := newRunServer(t, "PLANNED", nil)
 	// Record a plan so reconcile is not rejected by its precondition.
 	if err := os.WriteFile(root+"/.agent-sdlc/plan.meta.json", []byte(`{"source":"docs/PLAN.md"}`), 0o644); err != nil {
@@ -91,9 +72,6 @@ func TestDashboardCommandsResolveToBoundary(t *testing.T) {
 		if verb == "" {
 			t.Fatalf("route %q has no mapped sop verb; update verbForRoute", tmpl)
 		}
-		if !verbs[verb] {
-			t.Errorf("route %q drives sop verb %q, which is not a documented boundary operation", tmpl, verb)
-		}
 		code := postWithCSRF(t, srv, path)
 		switch code {
 		case http.StatusNotFound, http.StatusBadRequest:
@@ -102,31 +80,16 @@ func TestDashboardCommandsResolveToBoundary(t *testing.T) {
 	}
 }
 
-// TestDashboardHasNoUndocumentedCommandRoute asserts the router does not serve
-// a phantom approve command: approval is a SOP application operation that
-// does not exist on this generic project-command route, so the dashboard must
-// not expose it there (it has its own dedicated, always-gated route instead).
+// TestDashboardHasNoUndocumentedCommandRoute asserts the generic project-command
+// route serves neither approve (it has its own task-scoped route) nor cancel
+// (SOP has no cancellation operation).
 func TestDashboardHasNoUndocumentedCommandRoute(t *testing.T) {
 	srv, id, _ := newRunServer(t, "PLANNED", nil)
-	for _, verb := range []string{"approve"} {
+	for _, verb := range []string{"approve", "cancel"} {
 		path := "/projects/" + id + "/commands/" + verb
 		if code := postWithCSRF(t, srv, path); code != http.StatusBadRequest {
 			t.Errorf("POST %s = %d, want 400 (unknown command)", path, code)
 		}
-	}
-}
-
-// TestDashboardCancelCommandRefusedWhenUnsupported asserts the CTRL006 cancel
-// route exists (unlike the undocumented approve verb above) but is refused
-// with an explicit 409 rather than started, because SOP exposes no
-// cancellation application operation (sopclient.CancelOperations() is false).
-// A 404/400 here would say the control does not exist; a 200 would manufacture
-// a fake stop. 409 is the only truthful answer until SOP exposes the verb.
-func TestDashboardCancelCommandRefusedWhenUnsupported(t *testing.T) {
-	srv, id, _ := newRunServer(t, "PLANNED", nil)
-	path := "/projects/" + id + "/commands/cancel"
-	if code := postWithCSRF(t, srv, path); code != http.StatusConflict {
-		t.Errorf("POST %s = %d, want 409 (cancellation unsupported by SOP)", path, code)
 	}
 }
 

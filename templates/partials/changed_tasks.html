@@ -2,20 +2,14 @@
        changed-executed-task set awaiting reconcile through its authoritative
        listing `sop reconcile <PLAN.md> --list-changed --json`, resolved from
        SOP's recorded plan provenance; the controller never computes a plan diff
-       itself and never reads a stale artifact. Rendered only when
-       ReconcileListChanged is true (SOP's own read operation exists); within
-       that, ChangedTasks.Reported distinguishes "SOP reported a set" from "SOP
+       itself and never reads a stale artifact. ChangedTasks.Reported distinguishes "SOP reported a set" from "SOP
        reported none" so an absent set is never shown as an empty success. A
        failed/unparsable listing is surfaced explicitly (ChangedTasksError)
        rather than rendered as an empty success. Every field shown is SOP's own
        value, with Title/Stage enriched from SOP's task store.
 
-       Each pending task's accept-changed control is its own per-task approval
-       (the --accept-changed equivalent), gated on ReconcileAcceptChanged: until
-       SOP exposes that application operation the control explains the gap
-       instead of pretending it can apply. Reconcile itself is refused by the
+       Each pending task needs its own accept-changed; reconcile itself is refused by the
        command handler while any task here remains pending. */ -}}
-{{if .ReconcileListChanged}}
 <section class="panel">
   <div class="panel-head"><h2>Changed executed tasks</h2></div>
   {{if .ChangedTasksError}}
@@ -57,7 +51,7 @@
           {{end}}
         </td>
         <td>
-          {{if not .Approved}} {{if $.ReconcileAcceptChanged}}
+          {{if not .Approved}}
           <form
             class="inline"
             hx-post="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}/commands/accept-changed"
@@ -69,9 +63,7 @@
               Accept changed
             </button>
           </form>
-          {{else}}
-          <span class="badge s-unavailable">{{unavailable}}</span>
-          {{end}} {{end}}
+          {{end}}
         </td>
       </tr>
       {{end}}
@@ -93,4 +85,3 @@
   </p>
   {{end}}
 </section>
-{{end}}

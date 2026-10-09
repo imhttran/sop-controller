@@ -1,11 +1,10 @@
 # CTRL001 — Controller-to-SOP Boundary Contract
 
-> **Current reference / non-normative.** Maintained rendering of `Boundary()`, retained at its historical CTRL001 path. Requirements, specifications, and architecture define required behavior; this reference describes the implemented boundary. Verification reports are point-in-time evidence. See the [documentation index](../../README.md).
+> **Current reference / non-normative.** Maintained operation table for the controller boundary, retained at its historical CTRL001 path. Requirements, specifications, and architecture define required behavior; this reference describes the implemented boundary. Verification reports are point-in-time evidence. See the [documentation index](../../README.md).
 
 **Scope:** the application/API contract the `sop-controller` dashboard uses to
-observe and control SOP. It is defined in code by
-`internal/sopclient/boundary.go` (`Boundary`, `Lookup`, `ErrOperationUnsupported`)
-and exercised by `internal/sopclient/boundary_test.go` and
+observe and control SOP. It is implemented by the `Client` methods in
+`internal/sopclient` and exercised by `internal/sopclient/boundary_test.go` and
 `internal/web/boundary_test.go`.
 
     agentic-sop / SOP = orchestration + execution authority
@@ -13,10 +12,8 @@ and exercised by `internal/sopclient/boundary_test.go` and
 
 > Architecture rationale and invariants: [`architecture/SOP-BOUNDARY.md`](../../architecture/SOP-BOUNDARY.md).
 
-This document is a *rendering* of `Boundary()`, not an independent
-specification: the descriptor table in code is authoritative. The test
-`TestBoundaryContractMatchesPRD` keeps the operation set in sync, and any drift is
-corrected from `Boundary()` rather than the other way round.
+This table is maintained by hand against the `Client` methods; when they
+change, update it.
 
 Here, **supported** means implemented at the controller boundary, not verified
 against an external SOP binary. `AcceptChangedTask` delegates to
@@ -45,19 +42,18 @@ real-binary scenarios were **NOT EXERCISED** (readiness **NOT READY**).
 
 ## Operations
 
-The operations in `Boundary()`, in the PRD's order, with their `internal/sopclient`
+The conceptual operations, in the PRD's order, with their `internal/sopclient`
 entry point, the SOP application operation each uses, the `sop` CLI verbs a command
-operation drives, and their status. This table mirrors `Boundary()` exactly; the
-test `TestBoundaryContractMatchesPRD` keeps them in sync.
+operation drives, and their status.
 
 | # | Operation | sopclient entry point | SOP application operation | SOP verbs | Status |
 |---|-----------|-----------------------|---------------------------|-----------|--------|
 | 1 | `GetPlan` | `PlanSource` | read `.agent-sdlc/plan.meta.json` (SOP's recorded active plan source) | — | supported |
 | 2 | `GetTasks` | `Project` | read `tasks` + `task_dependencies` from `state.db` | — | supported |
 | 3 | `GetTask` | `Task` | read `tasks`, `task_attempts`, `handoffs` from `state.db`; optional SOP-reported checkpoint/bounded-progress line from `.agent-sdlc/runs/<task>/checkpoint.json`; the SOP-reported approval gate (`TaskDetail.Approval`) is projected from SOP's approval listing (see `GetApprovals`), not computed here | — | supported |
-| 4 | `GetTaskActivity` | `Activity`, `Task` | read `.agent-sdlc/runs/<task>/activity.jsonl` | — | supported |
+| 4 | `GetTaskActivity` | `ActivityWindow`, `TaskActivityView`, `Task` | read `.agent-sdlc/runs/<task>/activity.jsonl` | — | supported |
 | 5 | `GetTaskProgress` | `Project` | read task statuses from `state.db` (`ProjectDetail.Summary`/`PercentComplete`) | — | supported |
-| 6 | `GetApprovals` | `Approvals`, `Tasks`, `Task` | `sop approvals --json` (SOP's structured approval listing; read back verbatim from `.agent-sdlc/approvals.json`, present-or-absent; the controller never reconstructs a gate) | `approvals` | supported |
+| 6 | `GetApprovals` | `Approvals`, `Tasks`, `Task` | `sop approvals --json` (SOP's structured approval listing, decoded verbatim from stdout; the controller never reconstructs a gate) | `approvals` | supported |
 | 7 | `GetTaskReport` | `ReportTask` | `sop report <task>` | `report` | supported |
 | 8 | `StartOrContinueRun` | `Run`, `Resume` | `sop run` / `sop resume` | `run`, `resume` | supported |
 | 9 | `RetryTask` | `Retry`, `RetryForce`, `RetryAll` | `sop retry <task>` / `sop retry <task> --force` / `sop retry --all` | `retry` | supported |
@@ -69,8 +65,7 @@ test `TestBoundaryContractMatchesPRD` keeps them in sync.
 | 15 | `AcceptChangedTask` | `AcceptChangedTasks`, `AcceptChangedTask` | `sop reconcile <PLAN.md> --accept-changed <TASK_ID>` (repeated `--accept-changed` once per explicitly selected task id, in a single invocation, so SOP's own atomic reconciliation semantics are preserved; the plan path comes from SOP's recorded `plan.meta.json` provenance; the controller never diffs the plan, never bulk-accepts, and writes no SOP state) | `reconcile` | supported |
 | 16 | `GetTaskPerformance` | `Performance`, `Task`, `Project` | read `.agent-sdlc/runs/<task>/metrics.json` (SOP's per-task performance record; `report.json`'s `performance` field is the fallback) and `.agent-sdlc/runs/<plan-id>/metrics.json` (the plan-level aggregate, keyed by SOP's recorded `plan.meta.json` `plan_id`). Both are SOP-produced diagnostic metadata read verbatim; the controller starts no timer and computes no lifecycle duration, and performance never influences task status, selection, retry, recovery, approval, or routing | — | supported |
 
-Every operation is `StatusSupported` except `OpCancelRun` (item 10), which is
-`StatusUnsupported`.
+Every operation is supported except `CancelRun` (item 10).
 
 ### Read operations
 
@@ -94,20 +89,10 @@ is surfaced verbatim as a typed error (`*DecisionRejection` /
 
 ## Recorded gap: CancelRun
 
-`CancelRun` remains part of the boundary contract, but SOP exposes no
-cancellation application operation — there is no `sop cancel` verb. Per the
-CTRL001 decision it is recorded as an explicit unsupported capability rather than
-removed or simulated:
-
-- `Client.CancelRun(ctx, projectID)` returns `ErrOperationUnsupported` for a
-  known project, and `ErrProjectNotFound` for an unknown one.
-
-The gap reason recorded in `Boundary()`/`Lookup()` (and reused verbatim by the
-runtime error, so they cannot drift) is:
-
-> SOP exposes no cancellation application operation (`sop cancel` does not
-> exist); cancelling an active run is a SOP lifecycle decision the controller must
-> not simulate
+`CancelRun` remains part of the conceptual contract, but SOP exposes no
+cancellation application operation — there is no `sop cancel` verb. The
+controller therefore has no cancel method, route, or control; `POST
+.../commands/cancel` is an unknown command (400).
 
 Why unsupported:
 
@@ -116,12 +101,9 @@ Why unsupported:
   without mutating SOP state) or (b) require a SOP-side cancellation application
   operation that does not yet exist.
 
-Callers test for the gap with `errors.Is(err, sopclient.ErrOperationUnsupported)`.
-The controller does **not** implement cancellation logic and does **not** remove
-the operation from the contract — it documents a capability SOP must grow before
-the controller can expose it. Availability is derived from `Boundary()` by
-`CancelOperations()`, so the day SOP records `OpCancelRun` as `StatusSupported`,
-the gate flips by construction with no code change and no hardcoded literal.
+The controller does **not** implement cancellation logic. When SOP grows a
+cancellation operation, add a `Client` method delegating to it, a route, and a
+control.
 
 ## Consumers
 
@@ -129,7 +111,7 @@ All production controller reads and commands go through `internal/sopclient`:
 
 - Views (`projects`, `project`, `task`, `taskActivity`, `taskRecovery`,
   `taskReview`, `taskCI`, `taskHandoff`, `projectActivity`) call the `Get*`
-  reads: `Projects`, `Project`, `Task`, `Activity`, `PlanSource`, `Approvals`,
+  reads: `Projects`, `Project`, `Task`, `ActivityWindow`, `PlanSource`, `Approvals`,
   `Performance`.
 - Commands (`internal/web/handlers.go`) call `Run`, `Resume`, `Retry`,
   `RetryForce`, `RetryAll`, `Reconcile`, `ReportTask`, `ApproveTask`,
@@ -138,13 +120,8 @@ All production controller reads and commands go through `internal/sopclient`:
 
 No production handler opens `state.db` or the run artifacts directly; direct
 reads appear only in tests, which build fixtures. The cross-check test
-`internal/web/boundary_test.go` asserts every dashboard command resolves to a
-documented boundary operation.
-
-Availability helpers (`ApprovalOperations`, `CancelOperations`,
-`ReconcileOperations`, `ApprovalsOperations`) all derive from the single
-`Boundary()` source of truth, so a consumer never offers a control whose only
-possible outcome is `ErrOperationUnsupported`.
+`internal/web/boundary_test.go` asserts every dashboard command route reaches
+its handler.
 
 Supporting FR commands (`Validate`, `Review`, `Report`) are part of the existing
 `sopclient` surface and delegate to SOP the same way; they are not among the
@@ -154,15 +131,10 @@ conceptual operations but follow the same "delegate to SOP, never decide" rule.
 
 | Concern | Test |
 |---------|------|
-| Contract completeness / PRD mapping | `internal/sopclient.TestBoundaryContractMatchesPRD` |
-| No scheduler operation exposed | `internal/sopclient.TestBoundaryExposesNoSchedulerOperation` |
-| Unsupported gap returns `ErrOperationUnsupported` | `internal/sopclient.TestUnsupportedOperationsReturnErrOperationUnsupported` |
-| CancelRun derivation flips by construction | `internal/sopclient.TestCancelSupportedDerivation` |
-| Approve/decline availability | `internal/sopclient.TestApprovalOperationsReportsSupported` |
-| Approval listing availability | `internal/sopclient.TestApprovalsOperationsReportsSupported` |
-| Reconcile-control availability | `internal/sopclient.TestReconcileOperationsReportsListSupportedAcceptUnsupported`, `TestReconcileOperationsDerivation` |
+| Actions reject an unknown project | `internal/sopclient.TestActionsRejectUnknownProject` |
+| No cancel or generic approve command route | `internal/web.TestDashboardHasNoUndocumentedCommandRoute` |
 | Reads report SOP values + not-found sentinels | `internal/sopclient.TestReadOperationsReportSOPValues` |
-| Commands delegate to SOP verbs | `internal/sopclient.TestCommandOperationsDelegateToSOP`, `TestApprovalsRefreshDelegatesToSOP` |
+| Commands delegate to SOP verbs | `internal/sopclient.TestCommandOperationsDelegateToSOP`, `TestApprovalsDelegatesToSOP` |
 | No direct persistence mutation | `internal/sopclient.TestBoundaryDoesNotMutateSOPPersistence` |
-| Consumer commands map to the boundary | `internal/web.TestDashboardCommandsResolveToBoundary` |
+| Every dashboard command route reaches its handler | `internal/web.TestDashboardCommandsResolveToBoundary` |
 | Existing consumer behavior (views/actions/CSRF/concurrency) | `internal/web/server_test.go`, `internal/web/recovery_test.go` |

@@ -39,26 +39,18 @@
         never decides.
       </p>
       <div class="decisions-actions">
-        {{if .ApproveApplicable}}
         <form class="inline decisions-form" hx-post="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}/commands/approve" hx-target="#decisions-cmd" hx-swap="innerHTML">
           <input type="hidden" name="csrf" value="{{$.CSRF}}" />
           <input class="input" type="text" name="by" placeholder="by (actor, optional)" autocomplete="off" />
           <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
           <button class="btn primary" hx-disabled-elt="this" title="sop approve {{.TaskID}}">Approve</button>
         </form>
-        {{end}}
-        {{if .DeclineApplicable}}
         <form class="inline decisions-form" hx-post="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}/commands/decline" hx-target="#decisions-cmd" hx-swap="innerHTML">
           <input type="hidden" name="csrf" value="{{$.CSRF}}" />
           <input class="input" type="text" name="by" placeholder="by (actor, optional)" autocomplete="off" />
           <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
           <button class="btn danger" hx-disabled-elt="this" title="sop decline {{.TaskID}}">Decline</button>
         </form>
-        {{end}}
-        {{if and (not .ApproveApplicable) (not .DeclineApplicable)}}
-        <span class="badge s-unavailable">{{unavailable}}</span>
-        <span class="small">SOP exposes no approve or decline application operation for this gate.</span>
-        {{end}}
       </div>
     </li>
     {{end}}
@@ -89,15 +81,10 @@
       </div>
       {{if .ChangeSummary}}<p class="muted small">{{.ChangeSummary}}</p>{{end}}
       <div class="decisions-actions">
-        {{if $.AcceptChanged}}
         <form class="inline decisions-form" hx-post="/projects/{{$.Project.Summary.ID}}/tasks/{{.TaskID}}/commands/accept-changed" hx-target="#decisions-cmd" hx-swap="innerHTML">
           <input type="hidden" name="csrf" value="{{$.CSRF}}" />
           <button class="btn" hx-disabled-elt="this" title="sop reconcile --accept-changed {{.TaskID}}">Accept changed</button>
         </form>
-        {{else}}
-        <span class="badge s-unavailable">{{unavailable}}</span>
-        <span class="small">SOP exposes no accept-changed operation to apply this decision.</span>
-        {{end}}
       </div>
     </li>
     {{end}}

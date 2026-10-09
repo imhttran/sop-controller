@@ -5,17 +5,8 @@
        ACTION to SOP's own application operation (`sop approve` / `sop decline`,
        C2-002). When SOP reports no boundary the panel shows an explicit absence
        and offers no control.
-
-       Approve and decline are independent SOP operations, so each control is
-       gated on its OWN applicability (ApproveApplicable / DeclineApplicable):
-       an action SOP exposes is offered even if its counterpart is unsupported,
-       and an action SOP does not expose is shown read-only with its reason rather
-       than as a control whose only outcome is an unsupported error. Declining
-       writes nothing locally and never manufactures a failure; the rendered
-       state after an action re-reads SOP. SOP validates the gate at command time,
-       so a stale/not-applicable decision is rejected by SOP and reported as an
-       actionable conflict rather than a fabricated success. The actor/note fields
-       are optional and forwarded as `--by` / `--note`. */ -}}
+       SOP validates the gate at command time and a stale decision is reported
+       as a conflict. The actor/note fields are forwarded as `--by` / `--note`. */ -}}
 {{$a := .Approval}}
 {{if $a.Present}}
 <dl class="facts approval-facts">
@@ -47,9 +38,7 @@
   {{end}}
 </dl>
 {{if $a.Evidence}}<p class="muted small">SOP-reported reason: {{$a.Evidence}}</p>{{end}}
-{{if $a.Applicable}}
 <div class="actions">
-  {{if $a.ApproveApplicable}}
   <form
     class="inline approval-form"
     hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/approve"
@@ -61,8 +50,6 @@
     <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
     <button class="btn" hx-disabled-elt="this">Approve (SOP gate)</button>
   </form>
-  {{end}}
-  {{if $a.DeclineApplicable}}
   <form
     class="inline approval-form"
     hx-post="/projects/{{.ProjectID}}/tasks/{{.Task.ID}}/commands/decline"
@@ -74,7 +61,6 @@
     <input class="input" type="text" name="note" placeholder="note (optional)" autocomplete="off" />
     <button class="btn" hx-disabled-elt="this">Decline</button>
   </form>
-  {{end}}
 </div>
 <div id="cmd"></div>
 <p class="muted small">
@@ -84,16 +70,6 @@
   decision does not start execution. Declining writes nothing locally and
   manufactures no failure; a rejected (stale) decision is reported as a conflict.
 </p>
-{{else}}
-<p class="muted">
-  Approval action: <span class="badge s-unavailable">{{unavailable}}</span>
-  <span class="small"
-    >SOP reports a human approval boundary for this task but exposes no
-    application operation to apply it, so no approval action is available here.</span
-  >
-</p>
-{{if $a.ActionReason}}<p class="muted small">{{$a.ActionReason}}</p>{{end}}
-{{end}}
 {{else}}
 <p class="muted">
   Approval: <span class="badge s-unavailable">{{unavailable}}</span>

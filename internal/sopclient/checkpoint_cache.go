@@ -6,39 +6,13 @@ import (
 	"time"
 )
 
-// This file holds the refresh-merge rule for checkpoint progress (CTRL010).
-//
-// Refresh semantics: the controller re-reads SOP on every refresh and holds no
-// persisted progress of its own. To keep a known checkpoint from regressing to
-// unknown when a re-read yields no new evidence (for example a transient read of
-// a run directory SOP is rewriting), the store keeps the last SOP-reported
-// checkpoint per task in memory only. A re-read that reports no checkpoint keeps
-// the previously known value; a re-read that reports a checkpoint replaces it.
-// Nothing here computes or caches a percentage: the cached value is itself a
-// verbatim SOP-reported record.
-//
-// The cache is deliberately bounded in both time and size so it cannot present
-// stale progress forever:
-//
-//   - Entries expire after checkpointTTL. Once a remembered checkpoint is older
-//     than the TTL, a re-read that yields no evidence reports the checkpoint as
-//     absent again instead of replaying a possibly-retracted value. This keeps
-//     "preserve on refresh" from becoming "sticky forever" when SOP legitimately
-//     drops evidence (task reset, replan, a fresh run directory, or a removed
-//     artifact).
-//   - The cache is capped at maxCheckpointCache entries, evicting the least-
-//     recently used task, so per-process memory cannot grow without bound across
-//     unrelated stores/projects.
-//
-// A re-read that reports evidence always wins and refreshes the entry's age, so
-// live SOP progress is never aged out while SOP keeps reporting it.
+// Refresh-merge rule for checkpoints (CTRL010). The last reported checkpoint per
+// task is kept in memory so a transient empty re-read does not regress progress.
+// Entries expire after checkpointTTL (so a retracted checkpoint is not replayed
+// forever) and the cache is capped at maxCheckpointCache, evicting the oldest.
+// Fresh evidence always wins.
 const (
-	// checkpointTTL bounds how long a remembered checkpoint is replayed after
-	// the last SOP-reported evidence for it. Past this window a refresh that
-	// yields no evidence reports absence again rather than a stale value.
-	checkpointTTL = 10 * time.Minute
-	// maxCheckpointCache bounds the number of remembered tasks, so the cache is
-	// not an unbounded growth path in a long-running controller process.
+	checkpointTTL      = 10 * time.Minute
 	maxCheckpointCache = 256
 )
 
@@ -60,12 +34,8 @@ func (c *checkpointCache) clock() time.Time {
 	return time.Now()
 }
 
-// merge returns the checkpoint to display after a refresh. When the fresh read
-// reported evidence (Present=true) it wins and is remembered (with a refreshed
-// age). When the fresh read reported no evidence, the last remembered record is
-// returned only if it was seen within checkpointTTL; otherwise the absent fresh
-// record is returned, so a retracted/reset checkpoint is never replayed forever.
-// The initial state (nothing ever reported) stays absent.
+// merge returns the fresh record when present (and remembers it); otherwise the
+// remembered one if seen within checkpointTTL; otherwise the absent fresh record.
 func (c *checkpointCache) merge(taskID string, fresh CheckpointProgress) CheckpointProgress {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -82,14 +52,12 @@ func (c *checkpointCache) merge(taskID string, fresh CheckpointProgress) Checkpo
 		if now.Sub(last.seen) <= checkpointTTL {
 			return last.progress
 		}
-		// Expired: drop it so a retracted checkpoint does not linger.
 		delete(c.known, taskID)
 	}
 	return fresh
 }
 
-// evictLocked trims the cache to maxCheckpointCache entries, dropping the oldest
-// (least-recently-seen) entries first. Caller holds c.mu.
+// evictLocked drops the least-recently-seen entries. Caller holds c.mu.
 func (c *checkpointCache) evictLocked() {
 	for len(c.known) > maxCheckpointCache {
 		var oldestID string
@@ -103,17 +71,12 @@ func (c *checkpointCache) evictLocked() {
 	}
 }
 
-// checkpointStore holds the process-wide cache pointer in a form that is safe to
-// lazily initialize from concurrent read paths. Two goroutines calling Task on
-// the same *Store (including a Store value constructed outside OpenStore) must
-// not race on the pointer assignment, so the pointer is stored atomically and
-// initialized via CompareAndSwap rather than a plain field write.
+// checkpointStore lazily creates the cache with CompareAndSwap so concurrent
+// readers of one Store converge on a single instance.
 type checkpointStore struct {
 	ptr atomic.Pointer[checkpointCache]
 }
 
-// get returns the shared cache, creating it on first use. Concurrent callers
-// converge on one cache instance; no caller observes a torn or nil pointer.
 func (c *checkpointStore) get() *checkpointCache {
 	if p := c.ptr.Load(); p != nil {
 		return p

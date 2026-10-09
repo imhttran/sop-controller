@@ -72,12 +72,28 @@ func seed(t *testing.T, root string, stmts ...string) {
 	}
 }
 
-// writeApprovals writes SOP's authoritative approval listing artifact for a test.
+// writeApprovals writes a fixture approval listing that readApprovals reads
+// back, standing in for `sop approvals --json` stdout.
 func writeApprovals(t *testing.T, root, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", approvalsArtifact), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".agent-sdlc", "approvals.json"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// readApprovals decodes the fixture written by writeApprovals. No fixture is
+// an unreported listing; a malformed one fails the test.
+func readApprovals(t *testing.T, st *Store) ApprovalsListing {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(st.root, ".agent-sdlc", "approvals.json"))
+	if err != nil {
+		return ApprovalsListing{}
+	}
+	listing, ok := decodeApprovals(raw)
+	if !ok {
+		t.Fatalf("malformed approvals fixture: %s", raw)
+	}
+	return listing
 }
 
 func TestSummaryTasksAndBlocking(t *testing.T) {
@@ -100,7 +116,7 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 	ctx := context.Background()
 	// Summary folds in the SOP-reported changed set the caller supplies; with no
 	// reported set (zero value) no changed-task count is added.
-	sum, err := st.Summary(ctx, ChangedTasks{}, st.Approvals())
+	sum, err := st.Summary(ctx, ChangedTasks{}, readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +130,7 @@ func TestSummaryTasksAndBlocking(t *testing.T) {
 		t.Fatalf("percent = %d, want 33", sum.PercentComplete())
 	}
 
-	tasks, err := st.Tasks(ctx, st.Approvals())
+	tasks, err := st.Tasks(ctx, readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +168,7 @@ func TestFixCyclesAndRetryable(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +233,7 @@ func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +259,7 @@ func TestTasksProjectHumanDecisionBoundary(t *testing.T) {
 	}
 
 	// The detail view must agree with the list over the SAME listing.
-	detail, err := st.Task(context.Background(), "blocked-human", st.Approvals())
+	detail, err := st.Task(context.Background(), "blocked-human", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +295,7 @@ func TestTaskDetailReadsArtifacts(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "t2", st.Approvals())
+	d, err := st.Task(context.Background(), "t2", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +320,7 @@ func TestTaskNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	if _, err := st.Task(context.Background(), "missing", st.Approvals()); err != ErrTaskNotFound {
+	if _, err := st.Task(context.Background(), "missing", readApprovals(t, st)); err != ErrTaskNotFound {
 		t.Fatalf("err = %v, want ErrTaskNotFound", err)
 	}
 }

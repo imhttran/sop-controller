@@ -56,7 +56,7 @@ func decisionServer(t *testing.T, sopBody string) (*httptest.Server, string, fun
 	}
 
 	bin, args := recordSop(t, sopBody)
-	sop, err := sopclient.New([]string{root}, bin, time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, bin), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

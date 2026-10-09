@@ -33,7 +33,7 @@ Plans MUST NOT override specifications. Reports and historical artifacts are
 point-in-time and non-normative: they provide traceability only and MUST NOT
 override current specifications. The CTRL001 boundary contract and inventory
 retain historical paths but are maintained current, non-normative references
-derived from `Boundary()` and the code; verification reports remain
+maintained against the code; verification reports remain
 point-in-time evidence.
 
 ## Where a new document belongs
@@ -190,7 +190,7 @@ These references describe the current implementation and do not replace the
 normative requirements, specifications, or architecture constraints.
 
 - [history/CTRL001/BOUNDARY-CONTRACT.md](history/CTRL001/BOUNDARY-CONTRACT.md) —
-  maintained rendering of the authoritative `Boundary()` descriptor and test map.
+  maintained operation table and test map.
 - [history/CTRL001/BOUNDARY-INVENTORY.md](history/CTRL001/BOUNDARY-INVENTORY.md) —
   maintained code-derived inventory of controller reads and commands.
 

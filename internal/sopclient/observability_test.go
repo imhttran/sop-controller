@@ -26,7 +26,7 @@ func TestInactivityDoesNotInferFailure(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,7 @@ import (
 // uses, so a test can read the SOP-persisted projection the web layer renders.
 func mustSopClient(t *testing.T, root string) *sopclient.Client {
 	t.Helper()
-	sop, err := sopclient.New([]string{root}, "sop", time.Minute)
+	sop, err := sopclient.New([]string{root}, withApprovals(t, "sop"), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

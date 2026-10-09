@@ -51,8 +51,7 @@ func (v *Views) Render(w io.Writer, name string, data any) error {
 	return v.t.ExecuteTemplate(w, name, data)
 }
 
-// statusClass maps SOP's task status to a badge style. It only styles the status
-// SOP already chose; it never classifies the workflow itself.
+// statusClass maps SOP's task status to a badge style.
 func statusClass(status string) string {
 	switch sopclient.TaskState(status) {
 	case "DONE":
@@ -86,9 +85,8 @@ func stageClass(stage string) string {
 	}
 }
 
-// dispositionClass maps SOP's failure disposition to a badge style. Each
-// disposition gets a distinct treatment so a human can tell at a glance whether
-// SOP will recover on its own (AUTO_FIX/CONTINUE/RETRY) or needs them.
+// dispositionClass distinguishes SOP self-recovery (AUTO_FIX/CONTINUE/RETRY)
+// from a human boundary.
 func dispositionClass(disposition string) string {
 	switch disposition {
 	case sopclient.DispositionAutoFix:
@@ -106,26 +104,18 @@ func dispositionClass(disposition string) string {
 	}
 }
 
-// classificationCategory derives the display-only category for a classification
-// from the Kind SOP persisted (CTRL009). It delegates entirely to sopclient so
-// the controller never reclassifies the failure; a nil or unrecognized Kind
-// yields CategoryUnknown.
+// classificationCategory delegates to sopclient (CTRL009).
 func classificationCategory(c *sopclient.Classification) sopclient.Category {
 	return c.Category()
 }
 
-// categoryLabel is the display label for a classification category. An unknown
-// category renders explicitly as "Unknown" so it can never read as a pass, a
-// provider failure, or a human boundary. It delegates to sopclient so the label
-// vocabulary cannot drift from the category contract.
+// categoryLabel delegates to sopclient so the vocabulary cannot drift.
 func categoryLabel(c sopclient.Category) string {
 	return c.Label()
 }
 
-// categoryClass maps a classification category to a badge style. Provider and
-// deterministic/validation categories are visually distinct, budget is its own
-// treatment (never the human style), and an unknown category is neutral so it
-// can never read as PASS, provider, or human.
+// categoryClass styles categories; budget never uses the human style, unknown
+// is neutral.
 func categoryClass(c sopclient.Category) string {
 	switch c {
 	case sopclient.CategoryProvider:
@@ -141,10 +131,7 @@ func categoryClass(c sopclient.Category) string {
 	}
 }
 
-// levelClass maps an aggregate status level (PASS/FAIL/SKIP/NOT_RUN/UNKNOWN,
-// and the JEV statuses) to a badge style. Only an explicit PASS reads as
-// complete; everything else, including the explicit-absence UNKNOWN, is neutral
-// or failing, so a missing artifact never looks like a pass.
+// levelClass: only an explicit PASS reads as complete.
 func levelClass(level string) string {
 	switch strings.ToUpper(level) {
 	case "PASS":
@@ -156,27 +143,16 @@ func levelClass(level string) string {
 	}
 }
 
-// notRunLabel is the wording used for data SOP did not persist in the CTRL008
-// detail sections. It is deliberately not "PASS", "OK", or any success word.
+// notRunLabel is the CTRL008 wording for absent data; never a success word.
 const notRunLabel = "not run"
 
-// unavailable is the CTRL008 template affordance for a field SOP persisted no
-// value for. It renders the explicit not-run literal so a missing field reads as
-// absent rather than as success, and it is never styled as PASS.
+// unavailable renders notRunLabel for a field SOP did not persist.
 func unavailable() string { return notRunLabel }
 
-// absentLiteral is the explicit absence value used by the aggregate status
-// panel: it is SOP's StatusUnknown ("UNKNOWN"), distinct from every real status
-// so a missing artifact never reads as a pass. It exists as a template func so
-// the template does not embed the literal and cannot drift from the sopclient
-// constant or render a success word.
+// absentLiteral exposes sopclient.StatusUnknown to templates.
 func absentLiteral() string { return sopclient.StatusUnknown }
 
-// evidenceState renders the CTRL008 missing-data affordance: a status-like value
-// that SOP did not persist is shown as the explicit "not run"/"unavailable"
-// literal with a neutral (never PASS-styled) badge, so absent data can never read
-// as success. A value SOP did persist is returned verbatim. It never invents a
-// value and never styles absence as complete.
+// evidenceState returns the value, or notRunLabel when SOP persisted none.
 func evidenceState(present bool, value string) string {
 	if !present || strings.TrimSpace(value) == "" {
 		return notRunLabel
@@ -184,49 +160,35 @@ func evidenceState(present bool, value string) string {
 	return value
 }
 
-// activeTask returns the id of the project's active task, or "" - a
-// template-friendly form of ProjectDetail.ActiveTask (Go templates cannot take a
-// two-value return in an action).
+// activeTask wraps ProjectDetail.ActiveTask (templates can't take two returns).
 func activeTask(p sopclient.ProjectDetail) string {
 	id, _ := p.ActiveTask()
 	return id
 }
 
-// hasRetries reports whether SOP recorded any attempt evidence for the task, so
-// a genuine zero retries is distinguishable from an absence. It is the
-// template-friendly form of TaskSummary.Retries (Go templates cannot take a
-// two-value return in an action).
+// hasRetries wraps TaskSummary.Retries (templates can't take two returns).
 func hasRetries(t sopclient.TaskDetail) bool {
 	_, ok := t.Retries()
 	return ok
 }
 
-// retryCount returns how many attempts SOP has already spent (attempt-1), or 0
-// when SOP recorded no attempt yet. Pair it with hasRetries to render absence
-// explicitly rather than as a zero.
+// retryCount is attempt-1, or 0; pair with hasRetries.
 func retryCount(t sopclient.TaskDetail) int {
 	n, _ := t.Retries()
 	return n
 }
 
-// blocked reports whether SOP reports a blocked task: an explicit blocked
-// status, or dependencies not yet completed. It reads SOP's own fields and never
-// infers a block the workflow did not record.
+// blocked: an explicit blocked status or incomplete dependencies.
 func blocked(t sopclient.TaskDetail) bool {
 	return t.Status == sopclient.StatusBlocked || len(t.BlockedBy) > 0
 }
 
-// hasProviderModel reports whether SOP persisted any provider/model detail for
-// the run, so the template can render the pair only when at least one half is
-// present instead of a dangling separator.
+// hasProviderModel reports whether either half of provider/model is present.
 func hasProviderModel(r sopclient.RunInfo) bool {
 	return strings.TrimSpace(r.Provider) != "" || strings.TrimSpace(r.Model) != ""
 }
 
-// startedAt returns SOP's earliest recorded attempt timestamp for the task, or
-// the zero time when SOP persisted no attempt evidence. CTRL008 presents
-// Started/elapsed only from data SOP actually persisted (attempt timestamps); it
-// never invents or infers a start time.
+// startedAt is the earliest attempt timestamp, or zero (CTRL008).
 func startedAt(t sopclient.TaskDetail) time.Time {
 	var earliest time.Time
 	for _, a := range t.Attempts {
@@ -240,9 +202,7 @@ func startedAt(t sopclient.TaskDetail) time.Time {
 	return earliest
 }
 
-// elapsed renders the time since the task's earliest recorded attempt as a
-// human-readable duration, or the explicit not-run literal when SOP persisted no
-// timestamp. It never fabricates a duration for absent data.
+// elapsed is the time since startedAt, or notRunLabel.
 func elapsed(t sopclient.TaskDetail) string {
 	start := startedAt(t)
 	if start.IsZero() {

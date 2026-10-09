@@ -10,14 +10,9 @@ import (
 	"time"
 )
 
-// SOP writes structured run artifacts under <root>/.agent-sdlc/runs/<task-id>/.
-// This file reads them, read-only. They are SOP's own persisted record of what a
-// run did and why it stopped: the controller reports them and never writes here,
-// never infers workflow state, and never feeds them back into a decision.
+// Run artifacts live under <root>/.agent-sdlc/runs/<task-id>/ and are read-only here.
 
-// Run stages mirror agentic-sop's internal/run.Stage vocabulary: the
-// deterministic lifecycle stage of one run. The controller reports these
-// verbatim; it never constructs or invents a stage.
+// Run stages mirror agentic-sop run.Stage.
 const (
 	StageCreated         = "CREATED"
 	StagePlanning        = "PLANNING"
@@ -30,9 +25,7 @@ const (
 	StageFailed          = "FAILED"
 )
 
-// Failure dispositions mirror agentic-sop's internal/failure.Disposition. They
-// are SOP's verdict on what it will do about a failure; the controller displays
-// them and never decides them.
+// Failure dispositions mirror agentic-sop failure.Disposition.
 const (
 	DispositionAutoFix    = "AUTO_FIX"
 	DispositionContinue   = "CONTINUE"
@@ -41,12 +34,7 @@ const (
 	DispositionNeedsHuman = "NEEDS_HUMAN"
 )
 
-// Activity action kinds group the meaningful SOP activity this model exposes.
-// They mirror the PRD's action categories (file inspection, repository mutation,
-// command execution, validation, review, JEV, quality decisions, recovery,
-// completion) and use SOP's own vocabulary rather than controller-invented
-// stages. The reader reports the Action SOP persisted; these constants document
-// the kinds a consumer can recognize without re-deriving them.
+// Activity action kinds (SOP's vocabulary) a consumer can recognize.
 const (
 	// ActionInspect: inspecting files/state (read-only observation).
 	ActionInspect = "inspect"
@@ -68,25 +56,9 @@ const (
 	ActionComplete = "complete"
 )
 
-// ActivityEvent is one structured SOP activity event: a short, machine-readable
-// summary of a meaningful lifecycle transition or action (agentic-sop
-// internal/activity.Event).
-//
-// Field meanings:
-//
-//	TaskID    the task whose run directory the event was read from.
-//	Stage     SOP's persisted lifecycle stage (one of the Stage* constants),
-//	          e.g. IMPLEMENTING, VALIDATING, REVIEWING, PASSED.
-//	Action    the action kind SOP recorded (e.g. one of the Action* constants).
-//	Detail    a safe summary (command name + exit status, file path category,
-//	          review/JEV verdict). Never a prompt, secret, API key, environment
-//	          dump, or unrestricted command/file content - see sanitizeDetail.
-//	Timestamp SOP's recorded transition time (from activity.jsonl "timestamp").
-//
-// Safe-summary contract: Detail is produced only through sanitizeDetail, which
-// strips/redacts prompts, secrets, API keys, environment dumps, and unrestricted
-// command/file contents. Both the CLI and the controller consume this same model
-// through internal/sopclient, so the guarantee is shared, not duplicated.
+// ActivityEvent is one SOP activity event (agentic-sop activity.Event). Detail
+// is a safe summary produced only through sanitizeDetail: never a prompt,
+// secret, env dump, or raw command/file content.
 type ActivityEvent struct {
 	TaskID    string
 	Stage     string
@@ -95,10 +67,8 @@ type ActivityEvent struct {
 	Timestamp time.Time
 }
 
-// Classification mirrors SOP's failure classification
-// (agentic-sop internal/failure.Classification): SOP's own verdict on why a run
-// stopped short of a pass and what disposition it applied. The controller only
-// reads and displays it.
+// Classification mirrors agentic-sop failure.Classification: why a run stopped
+// short of a pass and the disposition SOP applied.
 type Classification struct {
 	Kind        string
 	Disposition string
@@ -107,8 +77,6 @@ type Classification struct {
 }
 
 // HumanRequired reports whether SOP classified the failure as needing a human.
-// Only this disposition (or an explicit approval boundary) is a human boundary;
-// AUTO_FIX, CONTINUE, and RETRY are recovery SOP performs itself.
 func (c *Classification) HumanRequired() bool {
 	return c != nil && c.Disposition == DispositionNeedsHuman
 }
@@ -121,8 +89,7 @@ type JEV struct {
 	Findings int
 }
 
-// RunInfo is the latest run's structured record for one task, assembled from
-// SOP's run artifacts. Present is true when any artifact exists.
+// RunInfo is the latest run's record for one task; Present when any artifact exists.
 type RunInfo struct {
 	Present        bool
 	Stage          string
@@ -186,7 +153,6 @@ type planMeta struct {
 	FinalGate string `json:"final_gate"`
 }
 
-// runDir is the directory holding one task's run artifacts.
 func (s *Store) runDir(taskID string) string {
 	return filepath.Join(s.root, ".agent-sdlc", "runs", taskID)
 }
@@ -200,9 +166,7 @@ func readJSON(path string, v any) bool {
 	return json.Unmarshal(raw, v) == nil
 }
 
-// runInfo assembles the latest run's structured record for a task from SOP's
-// artifacts. Missing artifacts yield a zero RunInfo (Present=false) rather than
-// an error: a task that has never run simply has no run info.
+// runInfo assembles the latest run's record; a task that never ran is a zero RunInfo.
 func (s *Store) runInfo(taskID string) RunInfo {
 	var ri RunInfo
 	dir := s.runDir(taskID)
@@ -241,9 +205,8 @@ func (s *Store) runInfo(taskID string) RunInfo {
 		}
 	}
 
-	// classification.json is the reliable source: SOP writes it whenever a run
-	// did not pass, including a run that stopped on an infrastructure error and
-	// therefore wrote no report.json.
+	// classification.json is written whenever a run did not pass, even when no
+	// report.json exists (infrastructure errors).
 	if ri.Classification == nil {
 		var cls classificationDoc
 		if readJSON(filepath.Join(dir, "classification.json"), &cls) && cls.Disposition != "" {
@@ -263,27 +226,12 @@ func toClassification(c classificationDoc) *Classification {
 	}
 }
 
-// maxActivityEvents bounds the activity returned for one task. SOP appends to
-// activity.jsonl across retries and once per tool interaction, so an unbounded
-// read could grow large; the controller keeps the most recent events.
+// maxActivityEvents keeps the most recent events; activity.jsonl grows across retries.
 const maxActivityEvents = 200
 
-// activity returns the structured activity SOP persisted for a task, oldest
-// first, capped to the most recent maxActivityEvents. It returns nil when no
-// activity artifact exists (for example a run that predates activity reporting,
-// or a run SOP executed without it enabled).
-//
-// Ordering guarantee: events are returned in activity.jsonl append order (the
-// order SOP wrote them, oldest first). Because a file's append order is stable,
-// repeated reads of the same artifact yield the same order. Each event carries
-// SOP's recorded Timestamp; when SOP records non-decreasing timestamps, the
-// returned events are monotonic non-decreasing. Malformed lines are skipped
-// rather than failing the whole view.
-//
-// The controller is a pass-through: it reports the Stage and Action SOP
-// persisted and never invents a stage, decides a transition, or re-derives
-// workflow state. Detail is passed through sanitizeDetail so every consumer
-// shares one safe-summary guarantee.
+// activity returns the task's events in activity.jsonl append order (oldest
+// first), capped to maxActivityEvents, skipping malformed lines. Detail goes
+// through sanitizeDetail.
 func (s *Store) activity(taskID string) []ActivityEvent {
 	raw, ok := s.runFile(taskID, "activity.jsonl")
 	if !ok {
@@ -315,9 +263,7 @@ func (s *Store) activity(taskID string) []ActivityEvent {
 	return out
 }
 
-// PlanSource returns the active plan's source path recorded by SOP in
-// .agent-sdlc/plan.meta.json, or ("", false) when no plan is recorded. The
-// controller uses it to name the plan for `sop reconcile` without guessing.
+// PlanSource returns the plan path SOP recorded in plan.meta.json.
 func (s *Store) PlanSource() (string, bool) {
 	var meta planMeta
 	if !readJSON(filepath.Join(s.root, ".agent-sdlc", "plan.meta.json"), &meta) {
@@ -327,9 +273,8 @@ func (s *Store) PlanSource() (string, bool) {
 	return src, src != ""
 }
 
-// Plan returns the active plan and its final plan gate as SOP persisted them.
-// When no plan metadata exists, the returned PlanGate has Recorded=false and
-// FinalGate=StatusUnknown: absence is explicit and never inferred to be gated.
+// Plan returns the active plan and final gate; without metadata, Recorded is
+// false and FinalGate is StatusUnknown.
 func (s *Store) Plan() PlanGate {
 	var meta planMeta
 	if !readJSON(filepath.Join(s.root, ".agent-sdlc", "plan.meta.json"), &meta) {
@@ -349,12 +294,9 @@ func (s *Store) Plan() PlanGate {
 	}
 }
 
-// reportArtifact is the filename SOP uses for a run's report.
 const reportArtifact = "report.json"
 
-// ReportRef returns the location/reference of the task's persisted report
-// artifact. A missing report yields Present=false and an empty Path, never a
-// synthesized path that could imply a result.
+// ReportRef locates the task's report artifact; missing is Present=false with no path.
 func (s *Store) ReportRef(taskID string) ReportRef {
 	ref := ReportRef{TaskID: taskID}
 	path := filepath.Join(s.runDir(taskID), reportArtifact)
@@ -365,4 +307,13 @@ func (s *Store) ReportRef(taskID string) ReportRef {
 	ref.Path = path
 	ref.Name = reportArtifact
 	return ref
+}
+
+// ReportRef locates SOP's report under .agent-sdlc/runs/<task-id>/.
+type ReportRef struct {
+	Present bool
+	TaskID  string
+	// Path is absolute, or "" when absent.
+	Path string
+	Name string
 }

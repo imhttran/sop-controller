@@ -17,9 +17,8 @@ type Project struct {
 	ID string
 }
 
-// Diagnostic reports a candidate the controller skipped during discovery, or a
-// workspace root it could not read. Path and Reason are safe to log: neither is a
-// configuration value or secret.
+// Diagnostic is a skipped candidate or unreadable workspace root. Path and
+// Reason are safe to log.
 type Diagnostic struct {
 	Path   string
 	Reason string
@@ -29,9 +28,7 @@ type Diagnostic struct {
 // workspace/project is depth 1; workspace/group/project is depth 2.
 const DefaultMaxDepth = 4
 
-// ignoredDirs are directory names discovery never descends into: VCS metadata,
-// dependency trees, build output, and caches. None can hold a project's
-// .agent-sdlc/config.yaml, and walking them would be expensive and pointless.
+// ignoredDirs are never descended into (VCS, dependencies, build output, caches).
 var ignoredDirs = map[string]bool{
 	".git":         true,
 	"node_modules": true,
@@ -49,12 +46,9 @@ type ProjectConfig struct {
 	Branch string
 }
 
-// ReadProjectConfig parses .agent-sdlc/config.yaml under root. It is the single
-// place that interprets SOP project configuration, so discovery validation and
-// the SOP state store agree on what a project is. The parser is intentionally
-// minimal (no YAML dependency): it recognizes the top-level `project` section and
-// reads `name` and `integration_branch`. A file with no `project` section is
-// rejected as invalid.
+// ReadProjectConfig reads `project.name` and `project.integration_branch` from
+// .agent-sdlc/config.yaml with a minimal parser (no YAML dependency). A file
+// without a `project` section is invalid.
 func ReadProjectConfig(root string) (ProjectConfig, error) {
 	path := filepath.Join(root, ".agent-sdlc", "config.yaml")
 	raw, err := os.ReadFile(path)
@@ -91,10 +85,8 @@ func ReadProjectConfig(root string) (ProjectConfig, error) {
 	return cfg, nil
 }
 
-// ProjectID is the controller's stable identity for a project. It prefers the
-// project's declared name from .agent-sdlc/config.yaml and falls back to the root
-// directory's name. Discovery and the SOP state store both use it, so a project
-// has one identity however it was configured or discovered.
+// ProjectID is the project's declared name, else the root's basename. Discovery
+// and the store share it.
 func ProjectID(root string) string {
 	if cfg, err := ReadProjectConfig(root); err == nil && cfg.Name != "" {
 		return cfg.Name
@@ -102,16 +94,10 @@ func ProjectID(root string) string {
 	return filepath.Base(root)
 }
 
-// DiscoverProjects finds SOP projects beneath the given workspace roots. A
-// directory is a project when it contains a valid .agent-sdlc/config.yaml and an
-// initialized .agent-sdlc/state.db. Discovery is bounded to maxDepth (0 uses
-// DefaultMaxDepth), prunes ignoredDirs, and follows no symlinks: filepath.WalkDir
-// lstats entries, so a symlinked directory is never descended into. It therefore
-// cannot loop and cannot escape a configured workspace root.
-//
-// A directory that is not a project yields nothing; a directory that looks like a
-// project but has an invalid config or missing state yields a Diagnostic and is
-// skipped, so one bad directory never hides unrelated valid projects.
+// DiscoverProjects finds directories under the workspaces with a valid
+// config.yaml and an initialized state.db. It is bounded by maxDepth (0 =
+// DefaultMaxDepth), prunes ignoredDirs, and never follows symlinks (WalkDir
+// lstats). A broken candidate yields a Diagnostic, never hides other projects.
 func DiscoverProjects(workspaces []string, maxDepth int) ([]Project, []Diagnostic) {
 	if maxDepth <= 0 {
 		maxDepth = DefaultMaxDepth
@@ -166,10 +152,8 @@ func DiscoverProjects(workspaces []string, maxDepth int) ([]Project, []Diagnosti
 	return projects, diags
 }
 
-// considerProject classifies a directory. It returns (project, true, "") for a
-// valid SOP project, ("", false, "") for an ordinary directory, and
-// ("", false, reason) for a directory that carries a .agent-sdlc/config.yaml but
-// is not usable (invalid config, or no initialized state database).
+// considerProject returns (project, true, "") for a project, ("", false, "") for
+// an ordinary directory, and ("", false, reason) for an unusable one.
 func considerProject(dir string) (Project, bool, string) {
 	if _, err := os.Stat(filepath.Join(dir, ".agent-sdlc", "config.yaml")); err != nil {
 		return Project{}, false, ""
@@ -188,16 +172,9 @@ func considerProject(dir string) (Project, bool, string) {
 	return Project{Root: dir, ID: id}, true, ""
 }
 
-// ResolveProjects merges explicitly configured project roots with projects
-// discovered beneath the configured workspace roots. Roots are canonicalized and
-// deduplicated, so a project reachable both ways appears once; explicit roots are
-// added first, in configured order, then discovered roots in walk order. maxDepth
-// bounds discovery (0 uses DefaultMaxDepth).
-//
-// Two distinct roots that claim the same project identity are a deterministic
-// conflict: ResolveProjects returns an error naming both roots rather than bind
-// the identity to either, so the controller can never silently expose the wrong
-// repository.
+// ResolveProjects merges explicit roots (first, in order) with discovered ones,
+// deduplicated by canonical path. Two roots claiming one identity is an error
+// naming both, so the wrong repository is never exposed.
 func ResolveProjects(explicit, workspaces []string, maxDepth int) ([]Project, []Diagnostic, error) {
 	var out []Project
 	var diags []Diagnostic
@@ -238,10 +215,7 @@ func ResolveProjects(explicit, workspaces []string, maxDepth int) ([]Project, []
 	return out, diags, nil
 }
 
-// DiscoveryReport is a read-only snapshot of how the controller resolved its
-// project registry: the configured explicit roots and workspace roots, the depth
-// bound applied, the projects registered, and the candidates skipped. It is
-// controller diagnostics, never SOP state.
+// DiscoveryReport is a diagnostics snapshot of how the registry was resolved.
 type DiscoveryReport struct {
 	Explicit    []string
 	Workspaces  []string
@@ -250,9 +224,8 @@ type DiscoveryReport struct {
 	Diagnostics []Diagnostic
 }
 
-// ResolveReport resolves the registry (see ResolveProjects) and returns a full
-// report. On an identity conflict the report carries no projects and the error is
-// returned so the caller can surface it.
+// ResolveReport resolves the registry; on an identity conflict it has no
+// projects and returns the error.
 func ResolveReport(explicit, workspaces []string, maxDepth int) (DiscoveryReport, error) {
 	projects, diags, err := ResolveProjects(explicit, workspaces, maxDepth)
 	rep := DiscoveryReport{
@@ -269,9 +242,7 @@ func ResolveReport(explicit, workspaces []string, maxDepth int) (DiscoveryReport
 	return rep, nil
 }
 
-// canonicalPath resolves p to an absolute, symlink-resolved, cleaned path. It is
-// the dedupe key for a project root: the same directory reached two ways (explicit
-// and discovered, or through a symlink) collapses to one entry.
+// canonicalPath is the dedupe key: absolute, symlink-resolved, cleaned.
 func canonicalPath(p string) (string, error) {
 	abs, err := filepath.Abs(p)
 	if err != nil {

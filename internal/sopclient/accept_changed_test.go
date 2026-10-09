@@ -242,7 +242,7 @@ func TestAcceptChangedTasksReportsFailedReconcileTruthfully(t *testing.T) {
 		t.Errorf("rejection TaskIDs = %v, want [t1]", rej.TaskIDs)
 	}
 	// A reconcile rejection is not a precondition sentinel.
-	if errors.Is(err, ErrTaskNotInChangedSet) || errors.Is(err, ErrOperationUnsupported) {
+	if errors.Is(err, ErrTaskNotInChangedSet) {
 		t.Errorf("reconcile rejection misclassified: %v", err)
 	}
 }

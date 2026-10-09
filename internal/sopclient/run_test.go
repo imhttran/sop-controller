@@ -76,7 +76,7 @@ func TestActivityParsing(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "a1", st.Approvals())
+	d, err := st.Task(context.Background(), "a1", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestActivityParsing(t *testing.T) {
 	// No activity artifact -> no activity, no error.
 	seed(t, root, `INSERT INTO tasks VALUES ('a2','B','o','a','PLANNED',NULL,0,3,'`+
 		time.Now().UTC().Format(time.RFC3339)+`','`+time.Now().UTC().Format(time.RFC3339)+`')`)
-	d2, err := st.Task(context.Background(), "a2", st.Approvals())
+	d2, err := st.Task(context.Background(), "a2", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestClassificationSources(t *testing.T) {
 	}
 	defer st.Close()
 
-	r1, err := st.Task(context.Background(), "r1", st.Approvals())
+	r1, err := st.Task(context.Background(), "r1", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestClassificationSources(t *testing.T) {
 		t.Fatalf("r1 needsHuman=%v recovering=%q, want false/AUTO_FIX", r1.NeedsHuman(), r1.Recovering())
 	}
 
-	r2, err := st.Task(context.Background(), "r2", st.Approvals())
+	r2, err := st.Task(context.Background(), "r2", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestActivityCappedToMostRecent(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "cap", st.Approvals())
+	d, err := st.Task(context.Background(), "cap", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestRunMetaAndPlanSource(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}

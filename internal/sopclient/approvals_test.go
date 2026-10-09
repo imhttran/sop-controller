@@ -149,7 +149,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "blocked", st.Approvals())
+	d, err := st.Task(context.Background(), "blocked", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 		t.Fatal("NeedsHuman() = true for a task with no listing entry")
 	}
 
-	done, err := st.Task(context.Background(), "done-gate", st.Approvals())
+	done, err := st.Task(context.Background(), "done-gate", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestApprovalNeverFromStatusOrProse(t *testing.T) {
 		t.Fatalf("Approval.Present = true for a completed listing entry: %+v", done.Approval)
 	}
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestApprovalNeverFromAttemptsOrInactivity(t *testing.T) {
 	}
 	defer st.Close()
 
-	d, err := st.Task(context.Background(), "retried", st.Approvals())
+	d, err := st.Task(context.Background(), "retried", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestApprovalsListAndDetailAgree(t *testing.T) {
 	}
 	defer st.Close()
 
-	tasks, err := st.Tasks(context.Background(), st.Approvals())
+	tasks, err := st.Tasks(context.Background(), readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestApprovalsListAndDetailAgree(t *testing.T) {
 		t.Fatalf("summary = %+v, want NeedsHuman/AMBIGUOUS_CONTRACT", summary)
 	}
 
-	detail, err := st.Task(context.Background(), "t-open", st.Approvals())
+	detail, err := st.Task(context.Background(), "t-open", readApprovals(t, st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,14 +252,5 @@ func TestApprovalsListAndDetailAgree(t *testing.T) {
 func TestApprovalsMalformedIsAbsent(t *testing.T) {
 	if _, ok := decodeApprovals([]byte(`{"approvals": not json`)); ok {
 		t.Fatal("decodeApprovals accepted malformed JSON")
-	}
-	root := newProject(t)
-	st, err := OpenStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.Close()
-	if l := st.Approvals(); l.Reported || len(l.Entries) != 0 {
-		t.Fatalf("Approvals() = %+v, want an unreported empty listing", l)
 	}
 }

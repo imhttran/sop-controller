@@ -56,7 +56,7 @@ own SOP-owned evidence and delegated operation (see
 [../specs/HUMAN-APPROVAL.md](../specs/HUMAN-APPROVAL.md)). Both are driven by the
 documented SOP commands; there is no controller configuration that changes which
 domain applies. There is **no** configuration to enable cancellation: SOP
-exposes no cancellation operation, so `CancelRun` remains unsupported until SOP
+exposes no cancellation operation, so cancellation remains unsupported until SOP
 exposes cancellation.
 
 ### Command Timeout

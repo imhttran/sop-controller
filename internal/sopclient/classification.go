@@ -2,49 +2,28 @@ package sopclient
 
 import "strings"
 
-// SOP owns failure classification (agentic-sop internal/failure.Classification);
-// the controller only reads and displays it. This file is a DISPLAY-ONLY map
-// from the Kind SOP persisted to a coarse presentation category, so the UI can
-// distinguish provider failures from code/validation failures and from
-// tool/iteration-budget exhaustion without the controller reclassifying the
-// failure or transforming SOP's disposition.
-//
-// Boundary: the controller does not classify failures. It keys the category off
-// the Kind string SOP already wrote (report.json classification /
-// classification.json) and never infers a category from the disposition or from
-// the stage. The authoritative Kind vocabulary is owned by agentic-sop and is
-// not fully enumerated in this repository; only the kinds observed in SOP's
-// artifacts/tests are named here. Any Kind this map does not recognize yields
-// CategoryUnknown - never Provider, Human, or Deterministic - so an unrecognized
-// kind stays unknown rather than being guessed.
+// Display-only map from SOP's classification Kind to a coarse category for
+// styling. It never reclassifies or reads the disposition. Kinds this map does
+// not know are CategoryUnknown, never guessed.
 
-// Category is a display-only grouping of SOP's classification Kind. It is a
-// presentation hint for styling only; it is never SOP's verdict and never
-// changes SOP state.
+// Category is a display-only grouping of SOP's classification Kind.
 type Category string
 
 const (
-	// CategoryProvider: an infrastructure/model-provider failure (the model,
-	// transport, or provider call failed rather than the code under test).
+	// CategoryProvider: the model, transport, or provider call failed.
 	CategoryProvider Category = "PROVIDER"
-	// CategoryDeterministic: a deterministic code/validation failure that will
-	// reproduce until the code changes (tests, validation, build, review).
+	// CategoryDeterministic: tests, validation, build, or review will keep failing
+	// until the code changes.
 	CategoryDeterministic Category = "DETERMINISTIC"
-	// CategoryBudget: a tool/iteration/retry budget or resource exhaustion. It
-	// is explicitly NOT a human boundary on its own.
+	// CategoryBudget: tool/iteration/retry budget exhausted; not a human boundary.
 	CategoryBudget Category = "BUDGET"
-	// CategoryHuman: SOP itself classified the failure as needing a human
-	// (an ambiguous contract or an explicit human boundary).
+	// CategoryHuman: SOP classified the failure as needing a human.
 	CategoryHuman Category = "HUMAN"
-	// CategoryUnknown: the Kind is absent or not one this controller recognizes.
-	// It is never inferred to be provider, deterministic, budget, or human.
+	// CategoryUnknown: Kind absent or unrecognized.
 	CategoryUnknown Category = "UNKNOWN"
 )
 
-// Kind values observed in SOP's persisted classification artifacts and the
-// controller's fixtures. These document the kinds the controller recognizes for
-// display; the authoritative set is owned by agentic-sop and may grow. An
-// unrecognized kind maps to CategoryUnknown.
+// Kind values observed in SOP's artifacts; agentic-sop owns the full set.
 const (
 	// Provider / transient infrastructure kinds.
 	KindTransientProvider = "TRANSIENT_PROVIDER"
@@ -66,14 +45,10 @@ const (
 	KindAmbiguousContract = "AMBIGUOUS_CONTRACT"
 	KindHumanRequired     = "HUMAN_REQUIRED"
 
-	// KindReplanRequired is a non-human failure kind seen in fixtures.
 	KindReplanRequired = "REPLAN_REQUIRED"
 )
 
-// CategoryOf maps an SOP classification Kind to a display-only Category. It is a
-// pure mapping of the Kind string SOP persisted; it does not read or change the
-// disposition and does not classify the failure. An empty or unrecognized Kind
-// yields CategoryUnknown.
+// CategoryOf maps a Kind to a Category; empty or unknown is CategoryUnknown.
 func CategoryOf(kind string) Category {
 	switch strings.ToUpper(strings.TrimSpace(kind)) {
 	case KindTransientProvider, KindProviderError, KindModelError:
@@ -89,10 +64,7 @@ func CategoryOf(kind string) Category {
 	}
 }
 
-// Category returns the display-only category for this classification from the
-// Kind SOP persisted. A nil classification is unknown. It never inspects the
-// disposition: a deterministic kind is never labeled provider, and a
-// budget-exhaustion kind is never labeled human, regardless of disposition.
+// Category maps c.Kind; nil is unknown. The disposition is never consulted.
 func (c *Classification) Category() Category {
 	if c == nil {
 		return CategoryUnknown
@@ -100,9 +72,7 @@ func (c *Classification) Category() Category {
 	return CategoryOf(c.Kind)
 }
 
-// Label is the human-readable label for a Category, used by the templates. An
-// unknown category is rendered explicitly as "Unknown" so it can never read as a
-// pass, a provider failure, or a human boundary.
+// Label renders a Category; unknown reads "Unknown", never a pass.
 func (c Category) Label() string {
 	switch c {
 	case CategoryProvider:
